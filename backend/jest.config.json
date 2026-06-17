@@ -1,0 +1,19 @@
+{
+  "testEnvironment": "node",
+  "testMatch": ["**/tests/**/*.test.ts"],
+  "transform": {
+    "^.+\\.tsx?$": ["ts-jest", {
+      "tsconfig": {
+        "strict": true,
+        "esModuleInterop": true,
+        "target": "ES2020",
+        "module": "commonjs",
+        "resolveJsonModule": true
+      }
+    }]
+  },
+  "roots": ["<rootDir>"],
+  "moduleNameMapper": {
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  }
+}
