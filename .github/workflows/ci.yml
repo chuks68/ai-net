@@ -1,0 +1,182 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect_projects:
+    name: Detect Projects
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.detect.outputs.backend }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+      smart_contracts_cargo: ${{ steps.detect.outputs.smart_contracts_cargo }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect project manifests
+        id: detect
+        run: |
+          test -f backend/package.json && echo "backend=true" >> "$GITHUB_OUTPUT" || echo "backend=false" >> "$GITHUB_OUTPUT"
+          test -f frontend/package.json && echo "frontend=true" >> "$GITHUB_OUTPUT" || echo "frontend=false" >> "$GITHUB_OUTPUT"
+          test -f smart-contracts/Cargo.toml && echo "smart_contracts_cargo=true" >> "$GITHUB_OUTPUT" || echo "smart_contracts_cargo=false" >> "$GITHUB_OUTPUT"
+
+  backend:
+    name: Backend
+    needs: detect_projects
+    if: ${{ needs.detect_projects.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/node_modules
+          key: ${{ runner.os }}-node-20-backend-${{ hashFiles('backend/package-lock.json', 'backend/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-20-backend-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Test
+        run: npm test --if-present
+
+  frontend:
+    name: Frontend
+    needs: detect_projects
+    if: ${{ needs.detect_projects.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-node-20-frontend-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-20-frontend-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Test
+        run: npm test --if-present
+
+  smart-contracts:
+    name: Smart Contracts
+    needs: detect_projects
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: smart-contracts
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Rust
+        if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: wasm32v1-none
+
+      - name: Cache Cargo dependencies
+        if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: smart-contracts
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: smart-contracts/node_modules
+          key: ${{ runner.os }}-node-20-smart-contracts-${{ hashFiles('smart-contracts/package-lock.json', 'smart-contracts/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-20-smart-contracts-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Cargo lint
+        if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
+        run: cargo fmt --all -- --check
+
+      - name: Cargo clippy
+        if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Cargo test
+        if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
+        run: cargo test --all-features
+
+      - name: Cargo build
+        if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
+        run: cargo build --target wasm32v1-none --release

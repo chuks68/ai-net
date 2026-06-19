@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/index.ts",
-    "test": "jest",
+    "test": "jest --runInBand",
     "lint": "eslint src --ext .ts"
   },
   "keywords": ["stellar", "ai-agents", "multi-agent", "soroban", "venice-ai", "decentralized"],
