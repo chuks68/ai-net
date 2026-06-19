@@ -1,15 +1,24 @@
-import { AgentMeta } from '../types';
-
-const registry: Map<string, AgentMeta> = new Map();
-
-export function registerAgent(meta: AgentMeta): void {
-  registry.set(meta.id, meta);
+export interface Agent {
+  id: string;
+  name: string;
+  capability: string;
+  priceXLM: number;
+  stellarAddress: string;
 }
 
-export function discoverAgents(capability: string): AgentMeta[] {
-  return [...registry.values()].filter((a) => a.capability === capability);
+const agents = new Map<string, Agent>();
+
+export function registerAgent(agent: Agent): Agent {
+  agents.set(agent.id, agent);
+  return agent;
 }
 
-export function getAgent(id: string): AgentMeta | undefined {
-  return registry.get(id);
+export function discoverAgents(capability: string): Agent[] {
+  return Array.from(agents.values()).filter(
+    (agent) => agent.capability === capability
+  );
+}
+
+export function getAgent(id: string): Agent | undefined {
+  return agents.get(id);
 }
