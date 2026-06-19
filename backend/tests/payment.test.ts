@@ -67,7 +67,7 @@ function makeDb(initial?: PaymentRecord): PaymentDb {
     findByKey(taskId: string, nodeId: string): PaymentRecord | undefined {
       return store.get(`${taskId}:${nodeId}`);
     },
-    updateStatus(taskId: string, nodeId: string, status: PaymentStatus, txHash: string): void {
+    updateStatus(taskId: string, nodeId: string, status: PaymentStatus, txHash: string | null): void {
       const r = store.get(`${taskId}:${nodeId}`);
       if (r) { r.status = status; r.txHash = txHash; }
     },
@@ -173,6 +173,17 @@ describe("PaymentService.refund", () => {
     expect(hash).toBe("txhash-001");
     expect(db.findByKey("t1", "n1")!.status).toBe("refunded");
   });
+
+  it("is idempotent — second refund returns same hash without new Stellar tx", async () => {
+    const db = makeDb({
+      taskId: "t1", nodeId: "n1", balanceId: "bal-123",
+      status: "refunded", amountStroops: 100n, txHash: "refund-hash-001",
+    });
+    const svc = new PaymentService(db);
+    const kp = StellarSdk.Keypair.fromSecret("SABC");
+    const hash = await svc.refund("t1", "n1", kp);
+    expect(hash).toBe("refund-hash-001");
+  });
 });
 
 describe("PaymentService.getPaymentStatus", () => {
@@ -191,7 +202,92 @@ describe("PaymentService.getPaymentStatus", () => {
   });
 });
 
-// ─── Retry / HorizonUnavailableError tests ────────────────────────────────────
+describe("PaymentService.lock — pre-write atomicity", () => {
+  beforeEach(() => { jest.clearAllMocks(); });
+
+  it("writes a pending record to DB before submitting to Stellar", async () => {
+    // Intercept insert to capture what status was written first
+    const inserted: PaymentRecord[] = [];
+    const db: PaymentDb = {
+      insert(r: PaymentRecord) { inserted.push({ ...r }); },
+      findByKey: () => undefined,
+      updateStatus: jest.fn() as unknown as PaymentDb["updateStatus"],
+    };
+    const svc = new PaymentService(db);
+    const kp = StellarSdk.Keypair.fromSecret("SABC");
+
+    await svc.lock("t1", "n1", kp, "GAGENT", 1);
+
+    expect(inserted[0].status).toBe("pending");
+    expect(inserted[0].balanceId).toBe("balance-id-abc");
+  });
+
+  it("upgrades status to locked after successful Stellar submit", async () => {
+    const store = new Map<string, PaymentRecord>();
+    const db: PaymentDb = {
+      insert(r) { store.set(`${r.taskId}:${r.nodeId}`, { ...r }); },
+      findByKey(taskId, nodeId) { return store.get(`${taskId}:${nodeId}`); },
+      updateStatus(taskId, nodeId, status, txHash) {
+        const r = store.get(`${taskId}:${nodeId}`);
+        if (r) { r.status = status; r.txHash = txHash; }
+      },
+    };
+    const svc = new PaymentService(db);
+    const kp = StellarSdk.Keypair.fromSecret("SABC");
+
+    await svc.lock("t1", "n1", kp, "GAGENT", 1);
+
+    expect(db.findByKey("t1", "n1")!.status).toBe("locked");
+  });
+});
+
+// ─── Testnet integration test ─────────────────────────────────────────────────
+// Runs only when STELLAR_TESTNET_SECRET is set in the environment.
+// Executes a real lock → release cycle against Stellar testnet.
+
+const TESTNET_SECRET = process.env.STELLAR_TESTNET_SECRET;
+
+(TESTNET_SECRET ? describe : describe.skip)("Testnet integration: lock → release", () => {
+  it(
+    "creates a real claimable balance and claims it back",
+    async () => {
+      // Unload the mock so we use the real SDK
+      jest.unmock("@stellar/stellar-sdk");
+      jest.resetModules();
+
+      const { Keypair: RealKeypair } = await import("@stellar/stellar-sdk");
+      const { PaymentService: RealPaymentService } = await import("../src/payment/payment");
+
+      const store = new Map<string, PaymentRecord>();
+      const db: PaymentDb = {
+        insert(r) { store.set(`${r.taskId}:${r.nodeId}`, { ...r }); },
+        findByKey(taskId, nodeId) { return store.get(`${taskId}:${nodeId}`); },
+        updateStatus(taskId, nodeId, status, txHash) {
+          const r = store.get(`${taskId}:${nodeId}`);
+          if (r) { r.status = status; r.txHash = txHash; }
+        },
+      };
+
+      const coordinatorKp = RealKeypair.fromSecret(TESTNET_SECRET!);
+      const svc = new RealPaymentService(db);
+
+      const taskId = `integration-${Date.now()}`;
+      const nodeId = "testnet-node";
+
+      // Use coordinator as both payer and claimant (self-claim) for testnet simplicity
+      const balanceId = await svc.lock(taskId, nodeId, coordinatorKp, coordinatorKp.publicKey(), 1);
+      expect(typeof balanceId).toBe("string");
+      expect(balanceId.startsWith("00000000")).toBe(true);
+      expect(db.findByKey(taskId, nodeId)!.status).toBe("locked");
+
+      const txHash = await svc.release(taskId, nodeId, coordinatorKp);
+      expect(typeof txHash).toBe("string");
+      expect(txHash).toHaveLength(64);
+      expect(db.findByKey(taskId, nodeId)!.status).toBe("released");
+    },
+    60_000 // testnet can be slow
+  );
+});
 
 describe("PaymentService retry logic", () => {
   beforeEach(() => { jest.clearAllMocks(); });

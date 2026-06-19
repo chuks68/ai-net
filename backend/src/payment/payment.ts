@@ -96,18 +96,25 @@ export class PaymentService {
     // Derive balance ID before signing — deterministic from the operation
     const balanceId = tx.getClaimableBalanceId(0);
 
-    tx.sign(coordinatorKeypair);
-
-    await withRetry(() => this.server.submitTransaction(tx));
-
+    // Pre-write a pending record BEFORE submitting to Stellar.
+    // If the DB write fails here, no funds are moved — safe to retry.
+    // If the Stellar submit fails, the pending record is a no-op and can be
+    // cleaned up on next attempt. This prevents funds being stranded when the
+    // submit succeeds but the subsequent DB write would have failed.
     this.db.insert({
       taskId,
       nodeId,
       balanceId,
-      status: "locked",
+      status: "pending",
       amountStroops,
       txHash: null,
     });
+
+    tx.sign(coordinatorKeypair);
+
+    await withRetry(() => this.server.submitTransaction(tx));
+
+    this.db.updateStatus(taskId, nodeId, "locked", null);
 
     return balanceId;
   }
@@ -158,6 +165,11 @@ export class PaymentService {
 
     if (record.status === "released") {
       throw new PaymentAlreadyReleasedError(taskId, nodeId);
+    }
+
+    // Idempotency: if already refunded, return existing hash without a second Stellar tx
+    if (record.status === "refunded" && record.txHash) {
+      return record.txHash;
     }
 
     const account = await withRetry(() =>
