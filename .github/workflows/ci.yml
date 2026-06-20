@@ -70,8 +70,45 @@ jobs:
       - name: Lint
         run: npm run lint --if-present
 
-      - name: Test
+      - name: Test (unit)
         run: npm test --if-present
+
+  backend-e2e:
+    name: Backend E2E
+    needs: detect_projects
+    if: ${{ needs.detect_projects.outputs.backend == 'true' && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/node_modules
+          key: ${{ runner.os }}-node-20-backend-${{ hashFiles('backend/package-lock.json', 'backend/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-20-backend-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: E2E tests
+        run: npx jest --testPathPattern="tests/e2e" --runInBand
+        env:
+          STELLAR_TEST_SECRET: ${{ secrets.STELLAR_TEST_SECRET }}
+          VENICE_API_KEY: ${{ secrets.VENICE_API_KEY }}
 
   frontend:
     name: Frontend
