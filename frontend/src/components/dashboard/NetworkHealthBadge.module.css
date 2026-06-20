@@ -1,6 +1,22 @@
-.container { display: flex; align-items: center; gap: 0.5rem; }
-.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
 .green { background-color: #22c55e; }
 .yellow { background-color: #eab308; }
 .red { background-color: #ef4444; }
-.label { font-size: 0.875rem; font-weight: 600; color: #374151; }
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}

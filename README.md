@@ -154,6 +154,21 @@ npm run dev
 npm test
 ```
 
+### Run smart-contract E2E tests
+
+The full market report pipeline test runs against Stellar testnet and is expected
+to take 60-120 seconds. It funds fresh testnet accounts through Friendbot,
+executes the five-node market report DAG, verifies payment operations through
+Horizon, and validates the final Report Agent result.
+
+```bash
+cd smart-contracts
+cp .env.example .env
+# Fill STELLAR_COORDINATOR_SECRET and VENICE_API_KEY when running in CI.
+# Set RUN_STELLAR_E2E_TESTS=true in .env.
+npm run test:e2e
+```
+
 ---
 
 ## Contributing
