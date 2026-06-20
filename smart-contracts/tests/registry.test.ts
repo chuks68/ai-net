@@ -1,8 +1,8 @@
-import { registerAgent, discoverAgents, getAgent } from '../src/registry/registry';
+import { registerAgent, discoverAgents, getAgent, clearRegistry } from '../src/registry/registry';
 
 describe('Agent Registry', () => {
   beforeEach(() => {
-    // Re-import to get fresh state per test — or expose a clearRegistry helper
+    clearRegistry();
   });
 
   it('registers and discovers an agent by capability', () => {

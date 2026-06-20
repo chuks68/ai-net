@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react
 import { WalletProvider, useWallet } from './context/WalletContext'
 import LandingPage from './pages/LandingPage'
 import AgentsPage from './pages/AgentsPage'
-import TaskSubmissionPage from './pages/TaskSubmissionPage'
+import NewTaskPage from './pages/tasks/NewTaskPage'
 import TaskDetailPage from './pages/TaskDetailPage'
 
 const TopNav: React.FC = () => {
@@ -56,7 +56,7 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/agents" element={<AgentsPage />} />
-          <Route path="/tasks/new" element={<TaskSubmissionPage />} />
+          <Route path="/tasks/new" element={<NewTaskPage />} />
           <Route path="/tasks/:id" element={<TaskDetailPage />} />
         </Routes>
       </main>
