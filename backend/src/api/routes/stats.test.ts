@@ -8,14 +8,14 @@ describe('Stats API route', () => {
     const queryMock = jest.fn(async (text: string) => {
       if (text.includes('FROM agents')) return { rows: [{ count: 1 }] };
       if (text.includes('FROM tasks') && text.includes('SUM(CASE WHEN status =')) return { rows: [{ total: 2, succeeded: 2 }] };
-      if (text.includes('COUNT(*) AS count FROM tasks')) return { rows: [{ count: 2 }] };
       if (text.includes('DATE_TRUNC') && text.includes('FROM tasks')) return { rows: [] };
+      if (text.includes('COUNT(*) AS count FROM tasks')) return { rows: [{ count: 2 }] };
       if (text.includes('COALESCE(SUM(amount)') && text.includes('GROUP BY hour')) return { rows: [] };
       if (text.includes('COALESCE(SUM(amount)')) return { rows: [{ amount: 10_000_000 }] };
       return { rows: [] };
     });
 
-    const db: DbClient = { query: queryMock };
+    const db: DbClient = { query: queryMock as any };
     const app = express();
     app.use('/api', createStatsRouter(db));
 
