@@ -1,0 +1,76 @@
+import React, { Suspense } from 'react';
+import { Capability, AgentResult } from '../../types/agent';
+import RiskMatrix from './RiskMatrix';
+import DesignRenderer from './DesignRenderer';
+
+// Lazy loaded components for bundle optimization
+const ResearchReportRenderer = React.lazy(() => import('./ResearchReportRenderer'));
+const CodingRenderer = React.lazy(() => import('./CodingRenderer'));
+
+interface Props {
+  agentType: Capability;
+  result: AgentResult;
+}
+
+const LoadingFallback: React.FC = () => (
+  <div
+    style={{
+      padding: '24px',
+      color: 'var(--text-secondary)',
+      fontStyle: 'italic',
+      fontSize: '0.9rem',
+    }}
+  >
+    Loading renderer...
+  </div>
+);
+
+const AgentOutputRenderer: React.FC<Props> = ({ agentType, result }) => {
+  // All renderers handle null/undefined result with an empty-state placeholder
+  if (result === null || result === undefined) {
+    return (
+      <div
+        className="empty-state"
+        id={`empty-${agentType}`}
+        style={{
+          padding: '24px',
+          textAlign: 'center',
+          color: 'var(--text-secondary)',
+          background: 'rgba(255, 255, 255, 0.02)',
+          borderRadius: '8px',
+          border: '1px dashed rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        No output generated yet.
+      </div>
+    );
+  }
+
+  switch (agentType) {
+    case 'research':
+    case 'report':
+      return (
+        <Suspense fallback={<LoadingFallback />}>
+          <ResearchReportRenderer result={result as any} />
+        </Suspense>
+      );
+    case 'coding':
+      return (
+        <Suspense fallback={<LoadingFallback />}>
+          <CodingRenderer result={result as any} />
+        </Suspense>
+      );
+    case 'risk':
+      return <RiskMatrix result={result as any} />;
+    case 'design':
+      return <DesignRenderer result={result as any} />;
+    default:
+      return (
+        <div style={{ color: 'var(--danger)', padding: '12px' }}>
+          Unknown agent type: {agentType}
+        </div>
+      );
+  }
+};
+
+export default AgentOutputRenderer;
