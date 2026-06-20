@@ -11,7 +11,7 @@
     "rootDir": ".",
     "resolveJsonModule": true,
     "sourceMap": true,
-    "typeRoots": ["./src/@types", "./node_modules/@types"],
+    "typeRoots": ["./node_modules/@types"],
     "paths": {
       "@stellar/stellar-sdk": ["./src/@types/@stellar/stellar-sdk.d.ts"]
     },
