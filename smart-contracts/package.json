@@ -7,6 +7,7 @@
     "build": "tsc",
     "dev": "ts-node src/index.ts",
     "test": "jest --runInBand",
+    "test:e2e": "jest --runInBand tests/e2e/market-report.test.ts",
     "lint": "eslint src --ext .ts"
   },
   "keywords": [
