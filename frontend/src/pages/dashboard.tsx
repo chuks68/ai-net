@@ -10,7 +10,7 @@ import styles from './dashboard.module.css';
 
 export const DashboardPage: React.FC = () => {
   const { address } = useWallet();
-  const { data, loading, error } = useNetworkStats();
+  const { data, loading } = useNetworkStats();
 
   // Redirect unauthenticated users
   React.useEffect(() => {

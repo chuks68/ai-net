@@ -1,0 +1,5 @@
+.table { width: 100%; border-collapse: collapse; }
+.row { display: flex; gap: 1rem; padding: 0.5rem 0; }
+.empty { color: #64748b; padding: 1rem 0; }
+.viewLink { color: #6366f1; text-decoration: none; }
+.default { color: #64748b; }

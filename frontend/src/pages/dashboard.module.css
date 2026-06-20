@@ -1,0 +1,4 @@
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.health { margin-bottom: 1.5rem; }
+.recentTasks { }
+.heading { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.75rem; }

@@ -1,0 +1,6 @@
+.container { display: flex; align-items: center; gap: 0.5rem; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.green { background: #22c55e; }
+.yellow { background: #eab308; }
+.red { background: #ef4444; }
+.label { font-size: 0.875rem; }

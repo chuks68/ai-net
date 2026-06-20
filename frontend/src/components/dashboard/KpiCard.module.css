@@ -1,0 +1,23 @@
+.card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.title {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.value {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.skeleton {
+  height: 80px;
+  background: #e2e8f0;
+  border-radius: 4px;
+}
