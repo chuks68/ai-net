@@ -126,6 +126,7 @@ describe('ReportAgent', () => {
   });
 
   it('produces deterministic section structure from fixtures', () => {
+    jest.useFakeTimers();
     const first = assembleReportFromUpstream(
       'Solar energy market entry in Southeast Asia',
       [researchFixture, riskFixture],
@@ -134,6 +135,7 @@ describe('ReportAgent', () => {
       'Solar energy market entry in Southeast Asia',
       [researchFixture, riskFixture],
     );
+    jest.useRealTimers();
 
     expect(second).toEqual(first);
     expect(first.sections[0].heading).toBe('Executive Summary');
