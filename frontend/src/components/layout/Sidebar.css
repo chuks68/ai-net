@@ -33,6 +33,7 @@
   display: flex;
   align-items: center;
   width: 100%;
+  min-height: 40px;
   padding: 10px 12px;
   background: none;
   border: none;
@@ -58,10 +59,19 @@
 }
 
 .nav-icon {
-  width: 20px;
+  width: 18px;
+  height: 18px;
   display: flex;
+  align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: inherit;
+}
+
+.nav-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
 }
 
 .nav-label {

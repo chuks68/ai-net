@@ -102,10 +102,19 @@
 }
 
 .drawer-nav .nav-icon {
-  width: 24px;
+  width: 20px;
+  height: 20px;
   display: flex;
+  align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: inherit;
+}
+
+.drawer-nav .nav-icon svg {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .drawer-nav .nav-label {
