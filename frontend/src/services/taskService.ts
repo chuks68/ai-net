@@ -2,10 +2,12 @@ import { apiClient, ApiError } from './api';
 import type {
   AgentPreference,
   TaskSubmissionPayload,
-  TaskSubmitResponse
+  TaskSubmitResponse,
+  DagNode,
+  DagEdge
 } from '../types/api';
 
-export type { AgentPreference, TaskSubmissionPayload, TaskSubmitResponse };
+export type { AgentPreference, TaskSubmissionPayload, TaskSubmitResponse, DagNode, DagEdge };
 
 export async function createTask(
   payload: TaskSubmissionPayload,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { getAgents } from '@services/api'
-import type { AgentRecord } from '@types/api'
+import type { AgentRecord } from '../types/api'
 
 const AgentsPage: React.FC = () => {
   const [agents, setAgents] = useState<AgentRecord[]>([])

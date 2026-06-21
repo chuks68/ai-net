@@ -29,11 +29,21 @@ export interface TaskResponse {
   updatedAt: string;
 }
 
+export interface DagNode {
+  id: string;
+  label: string;
+}
+
+export interface DagEdge {
+  source: string;
+  target: string;
+}
+
 export interface TaskSubmitResponse {
   taskId: string;
   dagPreview: {
-    nodes: { id: string; label: string }[];
-    edges: { source: string; target: string }[];
+    nodes: DagNode[];
+    edges: DagEdge[];
   };
   status: string;
 }
