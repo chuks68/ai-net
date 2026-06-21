@@ -8,6 +8,8 @@ import NewTaskPage from './pages/tasks/NewTaskPage'
 import TaskDetailPage from './pages/TaskDetailPage'
 import RendererDemoPage from './pages/RendererDemoPage'
 import WalletPage from './pages/WalletPage'
+import DashboardPage from './pages/dashboard'
+import ErrorBoundary from './components/common/ErrorBoundary'
 
 const AppContent: React.FC = () => {
   return (
