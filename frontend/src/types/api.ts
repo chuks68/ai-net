@@ -81,3 +81,21 @@ export interface PaymentEvent {
   timestamp: string;
   txHash: string;
 }
+
+export type DAGEventType =
+  | 'node_started'
+  | 'node_completed'
+  | 'node_failed'
+  | 'payment_locked'
+  | 'payment_released'
+  | 'task_completed'
+  | 'task_failed';
+
+export interface DAGEvent {
+  type: DAGEventType;
+  taskId: string;
+  nodeId?: string;
+  timestamp: string;
+  payload?: any;
+}
+
