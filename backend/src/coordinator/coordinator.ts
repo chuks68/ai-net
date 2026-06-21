@@ -117,7 +117,7 @@ export class Coordinator {
         resolve();
       };
 
-      const failBlockedNodes = (): void => {
+      const failBlockedNodes = (includeDeadlocked: boolean): void => {
         for (const node of dag) {
           if (node.status !== 'pending') {
             continue;
@@ -125,7 +125,10 @@ export class Coordinator {
 
           const hasFailedDependency = node.dependsOn.some(dep => failed.has(dep));
           const hasUnresolvedDependency = node.dependsOn.some(dep => !nodeById.has(dep));
-          const isDeadlocked = inFlight === 0 && !node.dependsOn.every(dep => completed.has(dep));
+          const isDeadlocked =
+            includeDeadlocked &&
+            inFlight === 0 &&
+            !node.dependsOn.every(dep => completed.has(dep));
 
           if (!hasFailedDependency && !hasUnresolvedDependency && !isDeadlocked) {
             continue;
@@ -167,14 +170,14 @@ export class Coordinator {
             })
             .finally(() => {
               inFlight -= 1;
-              failBlockedNodes();
               scheduleReadyNodes();
+              failBlockedNodes(false);
               finishIfSettled();
             });
         }
 
         if (!scheduledAny && inFlight === 0) {
-          failBlockedNodes();
+          failBlockedNodes(true);
           finishIfSettled();
         }
       };
