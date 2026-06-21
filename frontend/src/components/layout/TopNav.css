@@ -1,0 +1,139 @@
+.top-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--bg-primary, #ffffff);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hamburger span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--text-primary, #1a202c);
+  margin: 2px 0;
+  transition: 0.3s;
+}
+
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-secondary, #64748b);
+  transition: background-color 0.2s;
+}
+
+.sidebar-toggle:hover {
+  background: var(--bg-secondary, #f1f5f9);
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary, #3b82f6);
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  margin: 0;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.wallet-chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid;
+}
+
+.wallet-chip.connected {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #16a34a;
+}
+
+.wallet-chip.disconnected {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+.disconnect-btn {
+  padding: 8px 16px;
+  background: var(--danger, #ef4444);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.disconnect-btn:hover {
+  background: #dc2626;
+}
+
+@media (max-width: 767px) {
+  .top-nav {
+    padding: 0 16px;
+  }
+  
+  .page-title {
+    font-size: 16px;
+  }
+  
+  .nav-right {
+    gap: 12px;
+  }
+  
+  .wallet-chip {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .disconnect-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
