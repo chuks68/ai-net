@@ -8,6 +8,7 @@ import { executeDAG, type DispatchFn, type PaymentReleaseFn } from '../coordinat
 import { createTask, getTask } from '../coordinator/taskStore';
 import { eventBus } from '../coordinator/eventBus';
 import type { DAGEvent } from '../coordinator/types';
+import { createAgentsRouter } from './routes/agents';
 
 export interface AppOptions {
   /** Called to execute a single DAG node; defaults to HTTP dispatch */
@@ -23,6 +24,9 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
   const dispatch: DispatchFn = opts.dispatch ?? defaultDispatch;
   const releasePayment: PaymentReleaseFn =
     opts.releasePayment ?? (async () => 'mock-hash');
+
+  // ── Agent routes ───────────────────────────────────────────────────────────
+  app.use('/api/agents', createAgentsRouter());
 
   // ── POST /api/tasks ────────────────────────────────────────────────────────
   app.post('/api/tasks', (req: Request, res: Response) => {
