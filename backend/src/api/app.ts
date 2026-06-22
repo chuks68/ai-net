@@ -9,6 +9,7 @@ import { createTask, getTask } from '../coordinator/taskStore';
 import { eventBus } from '../coordinator/eventBus';
 import type { DAGEvent } from '../coordinator/types';
 import { createPaymentReleaseFn, type StellarReleasePaymentFn } from '../payment';
+import { agentsRouter } from './routes/agents';
 
 export interface AppOptions {
   /** Called to execute a single DAG node; defaults to HTTP dispatch */
@@ -35,6 +36,7 @@ function tryLoadStellarRelease(): StellarReleasePaymentFn | undefined {
 export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; close: () => void } {
   const app = express();
   app.use(express.json());
+  app.use('/api/agents', agentsRouter);
 
   const dispatch: DispatchFn = opts.dispatch ?? defaultDispatch;
   const releasePayment: PaymentReleaseFn =
