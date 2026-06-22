@@ -17,7 +17,16 @@ export function getTaskDb(dbPath?: string): Database.Database {
         dagJson         TEXT NOT NULL DEFAULT '[]',
         createdAt       TEXT NOT NULL,
         updatedAt       TEXT NOT NULL
-      )
+      );
+      CREATE TABLE IF NOT EXISTS task_events (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        taskId    TEXT    NOT NULL,
+        type      TEXT    NOT NULL,
+        nodeId    TEXT,
+        payload   TEXT,
+        timestamp TEXT    NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_task_events_taskId ON task_events (taskId);
     `);
   }
   return _taskDb;
@@ -28,11 +37,22 @@ export function closeTaskDb(): void {
   _taskDb = null;
 }
 
+export interface TaskEvent {
+  type: string;
+  taskId: string;
+  nodeId?: string;
+  payload?: unknown;
+  timestamp: string;
+}
+
 export interface TaskDb {
   insert(task: Task): void;
   findById(id: string): Task | undefined;
   list(walletPublicKey: string, page: number, pageSize: number): { tasks: Task[]; total: number };
   updateStatus(id: string, status: TaskStatus): void;
+  updateDagJson(id: string, dagJson: string): void;
+  insertEvent(event: TaskEvent): void;
+  getEventHistory(taskId: string): TaskEvent[];
 }
 
 export function createTaskDb(db: Database.Database): TaskDb {
@@ -63,6 +83,38 @@ export function createTaskDb(db: Database.Database): TaskDb {
       db.prepare(
         "UPDATE tasks SET status = ?, updatedAt = ? WHERE id = ?"
       ).run(status, new Date().toISOString(), id);
+    },
+
+    updateDagJson(id: string, dagJson: string): void {
+      db.prepare(
+        "UPDATE tasks SET dagJson = ?, updatedAt = ? WHERE id = ?"
+      ).run(dagJson, new Date().toISOString(), id);
+    },
+
+    insertEvent(event: TaskEvent): void {
+      db.prepare(`
+        INSERT INTO task_events (taskId, type, nodeId, payload, timestamp)
+        VALUES (@taskId, @type, @nodeId, @payload, @timestamp)
+      `).run({
+        taskId: event.taskId,
+        type: event.type,
+        nodeId: event.nodeId ?? null,
+        payload: event.payload !== undefined ? JSON.stringify(event.payload) : null,
+        timestamp: event.timestamp,
+      });
+    },
+
+    getEventHistory(taskId: string): TaskEvent[] {
+      const rows = db.prepare(
+        "SELECT * FROM task_events WHERE taskId = ? ORDER BY id ASC"
+      ).all(taskId) as Array<{ taskId: string; type: string; nodeId: string | null; payload: string | null; timestamp: string }>;
+      return rows.map(r => ({
+        taskId: r.taskId,
+        type: r.type,
+        nodeId: r.nodeId ?? undefined,
+        payload: r.payload ? JSON.parse(r.payload) : undefined,
+        timestamp: r.timestamp,
+      }));
     },
   };
 }
