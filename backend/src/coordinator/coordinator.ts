@@ -100,12 +100,14 @@ export class Coordinator {
     const scheduled = new Set<string>();
     const nodeById = new Map(dag.map(node => [node.nodeId, node]));
     let inFlight = 0;
+    let settled = false;
 
     updateTaskIfPresent(taskId, { status: 'running' });
 
     await new Promise<void>(resolve => {
       const finishIfSettled = (): void => {
-        if (completed.size + failed.size !== dag.length) return;
+        if (settled || completed.size + failed.size !== dag.length) return;
+        settled = true;
 
         const status = failed.size === 0 ? 'completed' : 'failed';
         updateTaskIfPresent(taskId, { status, dag });
