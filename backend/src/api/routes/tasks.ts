@@ -13,9 +13,12 @@ const CreateTaskSchema = z.object({
   agentPreferences: z.array(z.string()).optional(),
 });
 
-const PaginationSchema = z.object({
+const TaskListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  status: z.enum(["queued", "running", "completed", "failed", "cancelled"]).optional(),
+  sort: z.enum(["createdAt:desc", "createdAt:asc"]).default("createdAt:desc"),
+  q: z.string().optional(),
 });
 
 // POST /api/tasks
@@ -50,15 +53,19 @@ tasksRouter.post("/", (req: Request, res: Response): void => {
 // GET /api/tasks
 tasksRouter.get("/", (req: Request, res: Response): void => {
   const walletPublicKey = (req.headers["walletpublickey"] as string) ?? "";
-  const parse = PaginationSchema.safeParse(req.query);
+  const parse = TaskListSchema.safeParse(req.query);
   if (!parse.success) {
     res.status(400).json({ error: parse.error.flatten() });
     return;
   }
 
-  const { page, pageSize } = parse.data;
+  const { page, pageSize, status, sort, q } = parse.data;
   const db = createTaskDb(getTaskDb());
-  const { tasks, total } = db.list(walletPublicKey, page, pageSize);
+  const { tasks, total } = db.list(walletPublicKey, page, pageSize, {
+    status,
+    sort,
+    q: q && q.length > 0 ? q : undefined,
+  });
 
   res.json({ tasks: tasks.map(t => ({ ...t, dag: JSON.parse(t.dagJson) })), total, page, pageSize });
 });

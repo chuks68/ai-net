@@ -28,10 +28,21 @@ export function closeTaskDb(): void {
   _taskDb = null;
 }
 
+export interface TaskListOptions {
+  status?: TaskStatus;
+  sort?: "createdAt:asc" | "createdAt:desc";
+  q?: string;
+}
+
 export interface TaskDb {
   insert(task: Task): void;
   findById(id: string): Task | undefined;
-  list(walletPublicKey: string, page: number, pageSize: number): { tasks: Task[]; total: number };
+  list(
+    walletPublicKey: string,
+    page: number,
+    pageSize: number,
+    options?: TaskListOptions
+  ): { tasks: Task[]; total: number };
   updateStatus(id: string, status: TaskStatus): void;
 }
 
@@ -48,14 +59,41 @@ export function createTaskDb(db: Database.Database): TaskDb {
       return db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Task | undefined;
     },
 
-    list(walletPublicKey: string, page: number, pageSize: number) {
+    list(
+      walletPublicKey: string,
+      page: number,
+      pageSize: number,
+      options: TaskListOptions = {}
+    ) {
       const offset = (page - 1) * pageSize;
-      const tasks = db.prepare(
-        "SELECT * FROM tasks WHERE walletPublicKey = ? ORDER BY createdAt DESC LIMIT ? OFFSET ?"
-      ).all(walletPublicKey, pageSize, offset) as Task[];
-      const { total } = db.prepare(
-        "SELECT COUNT(*) as total FROM tasks WHERE walletPublicKey = ?"
-      ).get(walletPublicKey) as { total: number };
+      const conditions: string[] = ["walletPublicKey = ?"];
+      const params: unknown[] = [walletPublicKey];
+
+      if (options.status) {
+        conditions.push("status = ?");
+        params.push(options.status);
+      }
+
+      if (options.q) {
+        conditions.push("prompt LIKE ?");
+        params.push(`%${options.q}%`);
+      }
+
+      const whereClause = conditions.join(" AND ");
+
+      // Only allow safe sort values — default to DESC
+      const sortOrder = options.sort === "createdAt:asc" ? "ASC" : "DESC";
+
+      const tasks = db
+        .prepare(
+          `SELECT * FROM tasks WHERE ${whereClause} ORDER BY createdAt ${sortOrder} LIMIT ? OFFSET ?`
+        )
+        .all(...params, pageSize, offset) as Task[];
+
+      const { total } = db
+        .prepare(`SELECT COUNT(*) as total FROM tasks WHERE ${whereClause}`)
+        .get(...params) as { total: number };
+
       return { tasks, total };
     },
 

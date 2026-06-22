@@ -2,6 +2,7 @@ import request from "supertest";
 import Database from "better-sqlite3";
 import { createApp } from "../src/api";
 import { getTaskDb, closeTaskDb, createTaskDb } from "../src/db/tasks";
+import type { TaskStatus } from "../src/types/task";
 
 // Use in-memory SQLite for tests by monkey-patching getTaskDb
 let inMemoryDb: Database.Database;
@@ -151,5 +152,259 @@ describe("SQLite persistence", () => {
     const found = createTaskDb(inMemoryDb).findById(id);
     expect(found).toBeDefined();
     expect(found!.id).toBe(id);
+  });
+});
+
+// ─── Filtering, Sorting & Search Tests ────────────────────────────────────
+
+describe("GET /api/tasks (filtering, sorting, search)", () => {
+  const wallet = "GCEZWKCA5FILTERSORT00000000000000000000000000000000000000";
+
+  beforeAll(() => {
+    // Clean any existing tasks for this wallet
+    inMemoryDb.prepare("DELETE FROM tasks WHERE walletPublicKey = ?").run(wallet);
+
+    const db = createTaskDb(inMemoryDb);
+    const now = Date.now();
+
+    const seedTasks: Array<{
+      id: string;
+      prompt: string;
+      status: TaskStatus;
+      minutesAgo: number;
+    }> = [
+      {
+        id: "task_fs_001",
+        prompt: "Solar energy market analysis",
+        status: "completed",
+        minutesAgo: 1,
+      },
+      {
+        id: "task_fs_002",
+        prompt: "Wind energy report",
+        status: "queued",
+        minutesAgo: 2,
+      },
+      {
+        id: "task_fs_003",
+        prompt: "Solar panel installation costs",
+        status: "completed",
+        minutesAgo: 3,
+      },
+      {
+        id: "task_fs_004",
+        prompt: "Battery storage technology",
+        status: "failed",
+        minutesAgo: 4,
+      },
+      {
+        id: "task_fs_005",
+        prompt: "Nuclear energy review",
+        status: "cancelled",
+        minutesAgo: 5,
+      },
+      {
+        id: "task_fs_006",
+        prompt: "Hydroelectric dam assessment",
+        status: "running",
+        minutesAgo: 6,
+      },
+      {
+        id: "task_fs_007",
+        prompt: "Offshore solar feasibility study",
+        status: "completed",
+        minutesAgo: 7,
+      },
+    ];
+
+    for (const t of seedTasks) {
+      db.insert({
+        id: t.id,
+        prompt: t.prompt,
+        walletPublicKey: wallet,
+        status: t.status,
+        dagJson: "[]",
+        createdAt: new Date(now - t.minutesAgo * 60_000).toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  });
+
+  // ── Status filter ──────────────────────────────────────────────────────
+
+  it("?status=completed returns only completed tasks", async () => {
+    const res = await request(app)
+      .get("/api/tasks?status=completed")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.length).toBe(3);
+    res.body.tasks.forEach((t: { status: string }) => {
+      expect(t.status).toBe("completed");
+    });
+  });
+
+  it("?status=queued returns only queued tasks", async () => {
+    const res = await request(app)
+      .get("/api/tasks?status=queued")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.length).toBe(1);
+    expect(res.body.tasks[0].status).toBe("queued");
+  });
+
+  it("?status=failed returns only failed tasks", async () => {
+    const res = await request(app)
+      .get("/api/tasks?status=failed")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.length).toBe(1);
+    expect(res.body.tasks[0].status).toBe("failed");
+  });
+
+  it("?status=running returns only running tasks", async () => {
+    const res = await request(app)
+      .get("/api/tasks?status=running")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.length).toBe(1);
+    expect(res.body.tasks[0].status).toBe("running");
+  });
+
+  it("?status=cancelled returns only cancelled tasks", async () => {
+    const res = await request(app)
+      .get("/api/tasks?status=cancelled")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.length).toBe(1);
+    expect(res.body.tasks[0].status).toBe("cancelled");
+  });
+
+  // ── Sort order ─────────────────────────────────────────────────────────
+
+  it("?sort=createdAt:asc returns oldest first", async () => {
+    const res = await request(app)
+      .get("/api/tasks?sort=createdAt:asc")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    const tasks = res.body.tasks;
+    expect(tasks.length).toBeGreaterThanOrEqual(3);
+    // Oldest first means created timestamps should be non-decreasing
+    for (let i = 1; i < tasks.length; i++) {
+      expect(new Date(tasks[i].createdAt).getTime()).toBeGreaterThanOrEqual(
+        new Date(tasks[i - 1].createdAt).getTime()
+      );
+    }
+  });
+
+  it("?sort=createdAt:desc returns newest first (default)", async () => {
+    const res = await request(app)
+      .get("/api/tasks?sort=createdAt:desc")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    const tasks = res.body.tasks;
+    expect(tasks.length).toBeGreaterThanOrEqual(3);
+    // Newest first means created timestamps should be non-increasing
+    for (let i = 1; i < tasks.length; i++) {
+      expect(new Date(tasks[i].createdAt).getTime()).toBeLessThanOrEqual(
+        new Date(tasks[i - 1].createdAt).getTime()
+      );
+    }
+  });
+
+  // ── Search (prompt substring) ──────────────────────────────────────────
+
+  it("?q=solar returns tasks whose prompt contains 'solar' (case-insensitive)", async () => {
+    const res = await request(app)
+      .get("/api/tasks?q=solar")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.length).toBe(3);
+    res.body.tasks.forEach((t: { prompt: string }) => {
+      expect(t.prompt.toLowerCase()).toContain("solar");
+    });
+  });
+
+  it("?q=SOLAR with uppercase is also case-insensitive", async () => {
+    const res = await request(app)
+      .get("/api/tasks?q=SOLAR")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.length).toBe(3);
+  });
+
+  it("?q=wind returns only wind-related tasks", async () => {
+    const res = await request(app)
+      .get("/api/tasks?q=wind")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.length).toBe(1);
+    expect(res.body.tasks[0].prompt.toLowerCase()).toContain("wind");
+  });
+
+  it("?q=xyzzy returns zero results for non-matching search", async () => {
+    const res = await request(app)
+      .get("/api/tasks?q=xyzzy")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.length).toBe(0);
+    expect(res.body.total).toBe(0);
+  });
+
+  // ── Combined params ────────────────────────────────────────────────────
+
+  it("status + q + sort combine correctly", async () => {
+    // completed tasks containing "solar", sorted oldest-first
+    const res = await request(app)
+      .get("/api/tasks?status=completed&q=solar&sort=createdAt:asc")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    const tasks = res.body.tasks;
+    expect(tasks.length).toBe(3);
+    tasks.forEach((t: { status: string; prompt: string }) => {
+      expect(t.status).toBe("completed");
+      expect(t.prompt.toLowerCase()).toContain("solar");
+    });
+    // Oldest first
+    for (let i = 1; i < tasks.length; i++) {
+      expect(new Date(tasks[i].createdAt).getTime()).toBeGreaterThanOrEqual(
+        new Date(tasks[i - 1].createdAt).getTime()
+      );
+    }
+  });
+
+  it("status + page composition: completed on page 1 with pageSize 2", async () => {
+    const res = await request(app)
+      .get("/api/tasks?status=completed&page=1&pageSize=2")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.length).toBe(2);
+    expect(res.body.total).toBe(3);
+    res.body.tasks.forEach((t: { status: string }) => {
+      expect(t.status).toBe("completed");
+    });
+  });
+
+  it("q + page composition: solar search on page 2 with pageSize 2", async () => {
+    const res = await request(app)
+      .get("/api/tasks?q=solar&page=2&pageSize=2")
+      .set("walletpublickey", wallet);
+
+    expect(res.status).toBe(200);
+    // 3 total solar tasks, page 2 with pageSize 2 => 1 result
+    expect(res.body.tasks.length).toBe(1);
+    expect(res.body.total).toBe(3);
   });
 });
