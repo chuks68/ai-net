@@ -24,6 +24,8 @@ export interface Task {
   dag: DAGNode[];
   createdAt: string;
   updatedAt: string;
+  /** Correlation ID for distributed tracing across HTTP request → coordinator → agent */
+  requestId?: string;
 }
 
 /** Events emitted by the coordinator */

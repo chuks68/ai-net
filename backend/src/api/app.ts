@@ -9,6 +9,8 @@ import { createTask, getTask } from '../coordinator/taskStore';
 import { eventBus } from '../coordinator/eventBus';
 import type { DAGEvent } from '../coordinator/types';
 import { createPaymentReleaseFn, type StellarReleasePaymentFn } from '../payment';
+import { createLogger } from '../utils/logger';
+import { requestId } from './middleware/requestId';
 
 export interface AppOptions {
   /** Called to execute a single DAG node; defaults to HTTP dispatch */
@@ -32,9 +34,29 @@ function tryLoadStellarRelease(): StellarReleasePaymentFn | undefined {
   }
 }
 
+/** Log metadata about a completed HTTP request */
+function requestLogger(req: Request, res: Response, next: NextFunction): void {
+  const start = Date.now();
+  const log = createLogger({ requestId: res.locals.requestId });
+
+  res.on('finish', () => {
+    const durationMs = Date.now() - start;
+    log.info(
+      { method: req.method, path: req.path, statusCode: res.statusCode, durationMs },
+      'request completed'
+    );
+  });
+
+  next();
+}
+
 export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; close: () => void } {
   const app = express();
   app.use(express.json());
+
+  // ── Global middleware ────────────────────────────────────────────────────────
+  app.use(requestId);
+  app.use(requestLogger);
 
   const dispatch: DispatchFn = opts.dispatch ?? defaultDispatch;
   const releasePayment: PaymentReleaseFn =
@@ -54,6 +76,7 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
     const taskId = `task_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
     const dag = decompose(taskId, prompt);
     const now = new Date().toISOString();
+    const correlationId = res.locals.requestId;
 
     createTask({
       taskId,
@@ -63,14 +86,19 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
       dag,
       createdAt: now,
       updatedAt: now,
+      requestId: correlationId,
     });
+
+    const log = createLogger({ requestId: correlationId, taskId });
 
     // Run the DAG asynchronously — do not await
     setImmediate(() => {
       executeDAG(getTask(taskId)!, dispatch, releasePayment).catch(err => {
-        console.error('[coordinator] DAG execution error:', err);
+        log.error({ err }, 'DAG execution error');
       });
     });
+
+    log.info({ dagNodeCount: dag.length }, 'task created');
 
     return res.status(201).json({ taskId, dagPreview: dag, status: 'queued' });
   });
@@ -107,6 +135,8 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
       return;
     }
 
+    const log = createLogger({ taskId, requestId: task.requestId });
+
     // Subscribe before replay so no live events are missed in the window between
     const unsub = eventBus.subscribe(taskId, (event: DAGEvent) => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -137,6 +167,8 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
 
     ws.on('close', unsub);
     ws.on('error', unsub);
+
+    log.info('WebSocket client connected for task stream');
   });
 
   function close(): void {
