@@ -9,6 +9,8 @@ import { createTask, getTask } from '../coordinator/taskStore';
 import { eventBus } from '../coordinator/eventBus';
 import type { DAGEvent } from '../coordinator/types';
 import { createPaymentReleaseFn, type StellarReleasePaymentFn } from '../payment';
+import { rateLimitMiddleware } from './middleware/rateLimit';
+import { authMiddleware } from './middleware/auth';
 
 export interface AppOptions {
   /** Called to execute a single DAG node; defaults to HTTP dispatch */
@@ -41,7 +43,7 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
     opts.releasePayment ?? createPaymentReleaseFn(tryLoadStellarRelease());
 
   // ── POST /api/tasks ────────────────────────────────────────────────────────
-  app.post('/api/tasks', (req: Request, res: Response) => {
+  app.post('/api/tasks', authMiddleware, rateLimitMiddleware, (req: Request, res: Response) => {
     const { prompt, walletPublicKey } = req.body as {
       prompt?: string;
       walletPublicKey?: string;
