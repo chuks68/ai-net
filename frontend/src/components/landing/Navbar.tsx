@@ -26,7 +26,7 @@ const Navbar: React.FC = () => {
 
   <input
     type="text"
-    placeholder=""
+    placeholder="  "
     className="w-full h-9 rounded-full bg-background-surface pl-11 pr-3 text-[13px] text-text-primary placeholder:text-text-secondary outline-none border border-border-subtle focus:border-accent-cyan/50 transition-colors"
   />
 </div>
