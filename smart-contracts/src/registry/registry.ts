@@ -1,7 +1,9 @@
+export type Capability = 'research' | 'risk' | 'coding' | 'design' | 'report';
+
 export interface Agent {
   id: string;
   name: string;
-  capability: string;
+  capability: Capability;
   priceXLM: number;
   stellarAddress: string;
 }
@@ -14,9 +16,7 @@ export function registerAgent(agent: Agent): Agent {
 }
 
 export function discoverAgents(capability: string): Agent[] {
-  return Array.from(agents.values()).filter(
-    (agent) => agent.capability === capability,
-  );
+  return Array.from(agents.values()).filter((a) => a.capability === capability);
 }
 
 export function getAgent(id: string): Agent | undefined {
