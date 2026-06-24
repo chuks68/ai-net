@@ -9,7 +9,21 @@ import type { EventStore } from '../../coordinator/eventStore';
 import type { Task } from '../../coordinator/types';
 import { WS_CLOSE } from '../../types/stream';
 
-const STREAM_PATH = /^\/tasks\/([^/]+)\/stream$/;
+const STREAM_PATH = /^\/tasks\/([^/?]+)\/stream(?:\?.*)?$/;
+
+/**
+ * Parse the optional `?lastEventId=<number>` cursor from a stream URL. Returns
+ * the parsed non-negative integer, or undefined when the param is absent or
+ * malformed (in which case the client gets a full replay — backward compatible).
+ */
+function parseLastEventId(url: string): number | undefined {
+  const qIndex = url.indexOf('?');
+  if (qIndex === -1) return undefined;
+  const raw = new URLSearchParams(url.slice(qIndex + 1)).get('lastEventId');
+  if (raw === null) return undefined;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : undefined;
+}
 
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000;
 const DEFAULT_PONG_TIMEOUT_MS = 10_000;
@@ -37,8 +51,13 @@ export interface TaskStreamDeps extends TaskStreamOptions {
  * Exposes ws://<host>/tasks/:id/stream. Each connection:
  *   1. must send `{ walletPublicKey }` as its first message (auth handshake);
  *   2. is validated against the task owner — non-owners get a 403 close frame;
- *   3. receives a chronological replay of all past events from the store;
+ *   3. receives a chronological replay of past events from the store — all of
+ *      them by default, or only those with seq > N when the handshake URL
+ *      carries an optional `?lastEventId=N` cursor;
  *   4. then streams live events as the Coordinator emits them.
+ *
+ * Every event sent to the client carries a per-task monotonic `seq`, so the
+ * client can persist the last seq it saw and resume from it on reconnect.
  *
  * A heartbeat ping is sent on an interval and the socket is closed if no pong
  * arrives in time. All subscriptions and timers are cleaned up on disconnect.
@@ -65,14 +84,20 @@ export function attachTaskStream(deps: TaskStreamDeps): () => void {
       return;
     }
     const taskId = match[1]!;
+    const lastEventId = parseLastEventId(req.url ?? '');
     wss.handleUpgrade(req, socket, head, ws => {
-      wss.emit('connection', ws, req, taskId);
+      wss.emit('connection', ws, req, taskId, lastEventId);
     });
   };
 
   httpServer.on('upgrade', onUpgrade);
 
-  wss.on('connection', (ws: WebSocket, _req: IncomingMessage, taskId: string) => {
+  wss.on('connection', (
+    ws: WebSocket,
+    _req: IncomingMessage,
+    taskId: string,
+    lastEventId?: number
+  ) => {
     const task = getTask(taskId);
     if (!task) {
       ws.close(WS_CLOSE.TASK_NOT_FOUND, 'Task not found');
@@ -80,7 +105,10 @@ export function attachTaskStream(deps: TaskStreamDeps): () => void {
     }
 
     let authed = false;
-    let lastSentSeq = 0;
+    // Cursor for the next flush: events with seq > lastSentSeq are replayed.
+    // With ?lastEventId=N we resume after seq N; without it we fall back to -1
+    // so the full history (seq 0 → latest) is replayed — backward compatible.
+    let lastSentSeq = lastEventId ?? -1;
     let unsubLive: (() => void) | undefined;
     let heartbeat: NodeJS.Timeout | undefined;
     let pongTimer: NodeJS.Timeout | undefined;
@@ -104,9 +132,10 @@ export function attachTaskStream(deps: TaskStreamDeps): () => void {
     const flush = (): void => {
       const events = eventStore.listByTaskSince(taskId, lastSentSeq);
       for (const event of events) {
-        const { seq, ...dagEvent } = event;
-        send(dagEvent);
-        lastSentSeq = seq;
+        // Send the full event including its seq so the client can record a
+        // cursor and resume from it via ?lastEventId on a later reconnect.
+        send(event);
+        lastSentSeq = event.seq;
       }
     };
 

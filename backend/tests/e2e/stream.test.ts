@@ -91,14 +91,15 @@ describe('WebSocket task stream', () => {
   function connect(
     taskId: string,
     wallet: string,
-    opts: { autoPong?: boolean } = {}
+    opts: { autoPong?: boolean; lastEventId?: number } = {}
   ): {
     ws: WebSocket;
     events: WsEvent[];
     untilCompleted: Promise<WsEvent[]>;
     closed: Promise<{ code: number; reason: string }>;
   } {
-    const ws = new WebSocket(`${wsBase}/tasks/${taskId}/stream`);
+    const query = opts.lastEventId !== undefined ? `?lastEventId=${opts.lastEventId}` : '';
+    const ws = new WebSocket(`${wsBase}/tasks/${taskId}/stream${query}`);
     const events: WsEvent[] = [];
     let resolveDone!: (e: WsEvent[]) => void;
     let rejectDone!: (err: Error) => void;
@@ -232,6 +233,47 @@ describe('WebSocket task stream', () => {
     for (let i = 1; i < timestamps.length; i++) {
       expect(timestamps[i]!).toBeGreaterThanOrEqual(timestamps[i - 1]!);
     }
+  }, 20_000);
+
+  it('replays only events after ?lastEventId on reconnect (cursor-based replay)', async () => {
+    const taskId = await createTaskFor(OWNER);
+    // Drive the task to completion and capture the full, seq-stamped history.
+    const first = connect(taskId, OWNER);
+    const all = await first.untilCompleted;
+    first.ws.close();
+
+    // Every event carries a per-task monotonic seq, 0-indexed and contiguous.
+    const seqs = all.map(e => e.seq as number);
+    expect(seqs[0]).toBe(0);
+    for (let i = 1; i < seqs.length; i++) {
+      expect(seqs[i]!).toBe(seqs[i - 1]! + 1);
+    }
+
+    // Reconnect with a cursor partway through; only later events must replay.
+    const cursor = seqs[4]!; // resume after the 5th event
+    const second = connect(taskId, OWNER, { lastEventId: cursor });
+    const replayed = await second.untilCompleted;
+    second.ws.close();
+
+    expect(replayed.every(e => (e.seq as number) > cursor)).toBe(true);
+    expect(replayed[0]!.seq).toBe(cursor + 1);
+    expect(replayed).toHaveLength(all.length - (cursor + 1));
+    expect(replayed[replayed.length - 1]!.type).toBe('task_completed');
+  }, 20_000);
+
+  it('replays the full history when no ?lastEventId is given', async () => {
+    const taskId = await createTaskFor(OWNER);
+    const first = connect(taskId, OWNER);
+    const all = await first.untilCompleted;
+    first.ws.close();
+
+    const second = connect(taskId, OWNER);
+    const replayed = await second.untilCompleted;
+    second.ws.close();
+
+    // Full replay starts at seq 0 and matches the original run.
+    expect(replayed[0]!.seq).toBe(0);
+    expect(replayed.map(e => e.seq)).toEqual(all.map(e => e.seq));
   }, 20_000);
 
   it('closes stale connections that never pong', async () => {
