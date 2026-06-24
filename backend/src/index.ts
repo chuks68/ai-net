@@ -6,11 +6,15 @@
 
 import { createApp } from './api/app';
 import { initializeAgents } from './agents';
+import { startAgentSync } from "./registry/sync";
 
 async function main() {
   console.log('[ai-net-backend] Starting server...');
 
   try {
+    // Start agent sync
+    startAgentSync();
+    
     // Initialize all agents and register them
     console.log('[ai-net-backend] Initializing agents...');
     await initializeAgents();

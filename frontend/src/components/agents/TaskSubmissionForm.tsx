@@ -80,7 +80,7 @@ export function TaskSubmissionForm() {
     <main style={{ maxWidth: 900, margin: '0 auto', padding: '24px' }}>
       <h1>Submit a New Task</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate id="task-form">
         <div style={{ marginBottom: 20 }}>
           <label htmlFor="prompt" style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>
             Task prompt
@@ -136,7 +136,7 @@ export function TaskSubmissionForm() {
                 {agentPreferences.map((option) => (
                   <label
                     key={option.value}
-                    htmlFor={`agentPreferences-${option.value}`}
+                    htmlFor={`pref-${option.value}`}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -148,7 +148,7 @@ export function TaskSubmissionForm() {
                     }}
                   >
                     <input
-                      id={`agentPreferences-${option.value}`}
+                      id={`pref-${option.value}`}
                       type="checkbox"
                       value={option.value}
                       checked={field.value.includes(option.value)}
@@ -176,6 +176,7 @@ export function TaskSubmissionForm() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 32 }}>
           <button
             type="submit"
+            id="btn-submit-task"
             disabled={isLoading}
             style={{
               padding: '12px 20px',

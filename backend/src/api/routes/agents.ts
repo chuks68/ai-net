@@ -1,70 +1,209 @@
-/**
- * Agent registration and discovery API routes.
- */
+import { Router, Request, Response } from "express";
+import { z } from "zod";
+import * as StellarSdk from "@stellar/stellar-sdk";
+import { getAgentDb, createAgentDb } from "../../db/agents";
 
-import { Router, Request, Response } from 'express';
+export const agentsRouter = Router();
 
-interface RegisteredAgent {
-  agentId: string;
-  capabilities: string[];
-  pricingXLM: number;
+const RegisterAgentSchema = z.object({
+  agentId: z.string(),
+  capabilities: z.array(z.string()),
+  pricingXLM: z.number(),
+  endpoint: z.string().url(),
+  stellarPublicKey: z.string()
+});
+
+const horizon = new StellarSdk.Horizon.Server("https://horizon-testnet.stellar.org");
+
+// GET /api/agents
+agentsRouter.get("/", (req: Request, res: Response): void => {
+  const db = createAgentDb(getAgentDb());
+  const capability = req.query.capability as string | undefined;
+  const minReputation = req.query.minReputation ? parseFloat(req.query.minReputation as string) : undefined;
+  const maxPriceXLM = req.query.maxPriceXLM ? parseFloat(req.query.maxPriceXLM as string) : undefined;
+  
+  try {
+    const agents = db.list({ capability, minReputation, maxPriceXLM });
+    res.json(agents);
+  } catch (err) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// GET /api/agents/:id
+agentsRouter.get("/:id", (req: Request, res: Response): void => {
+  const db = createAgentDb(getAgentDb());
+  const agent = db.findById(req.params.id);
+  if (!agent) {
+    res.status(404).json({ error: "Agent not found" });
+    return;
+  }
+  res.json(agent);
+});
+
+// POST /api/agents/register
+agentsRouter.post("/register", async (req: Request, res: Response): Promise<void> => {
+  const parse = RegisterAgentSchema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: parse.error.flatten() });
+    return;
+  }
+  
+  const data = parse.data;
+  
+  // Verify Stellar account exists
+  try {
+    await horizon.loadAccount(data.stellarPublicKey);
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
+      res.status(400).json({ error: "StellarAccountNotFound" });
+      return;
+    }
+    res.status(400).json({ error: "Failed to verify Stellar account", details: err.message });
+    return;
+  }
+  
+  const db = createAgentDb(getAgentDb());
+  const agent = {
+    id: data.agentId,
+    capabilities: data.capabilities,
+    pricingXLM: data.pricingXLM,
+    endpoint: data.endpoint,
+    stellarPublicKey: data.stellarPublicKey,
+    reputationScore: 0,
+    lastSeenAt: new Date().toISOString()
+  };
+  
+  db.upsert(agent);
+  
+  res.status(201).json(agent);
+});
+
+// DELETE /api/agents/:id
+agentsRouter.delete("/:id", (req: Request, res: Response): void => {
+  const db = createAgentDb(getAgentDb());
+  const agent = db.findById(req.params.id);
+  if (!agent) {
+    res.status(404).json({ error: "Agent not found" });
+    return;
+  }
+  
+  const signature = req.headers["x-signature"] as string;
+  const challenge = req.headers["x-challenge"] as string;
+  
+  if (!signature || !challenge) {
+    res.status(401).json({ error: "Missing challenge or signature" });
+    return;
+  }
+  
+  try {
+    const keypair = StellarSdk.Keypair.fromPublicKey(agent.stellarPublicKey);
+    const isValid = keypair.verify(Buffer.from(challenge), Buffer.from(signature, "base64"));
+    if (!isValid) {
+      res.status(401).json({ error: "Invalid signature" });
+      return;
+    }
+  } catch (err) {
+    res.status(401).json({ error: "Invalid signature format" });
+    return;
+  }
+  
+  db.delete(req.params.id);
+  res.json({ message: "Agent deleted successfully" });
+});
+
+export interface AgentRecord {
+  id: string;
+  capability: string;
+  priceXLM: number;
   endpoint: string;
-  stellarPublicKey: string;
-  registeredAt: string;
+  status: string;
 }
 
-// In-memory registry for development
-const agentRegistry: Map<string, RegisteredAgent> = new Map();
+export interface AgentsRouterOptions {
+  initialAgents?: AgentRecord[];
+  healthTimeoutMs?: number;
+}
 
-export function createAgentsRouter(): Router {
+const DEFAULT_HEALTH_TIMEOUT_MS = 3_000;
+
+const RegisterAgentSchema = z.object({
+  id: z.string().min(1),
+  capability: z.string().min(1),
+  priceXLM: z.number().finite(),
+  endpoint: z.string().url(),
+  status: z.string().min(1).optional(),
+});
+
+const registryCache = new Map<string, AgentRecord>();
+
+export function createAgentsRouter(options: AgentsRouterOptions = {}): Router {
   const router = Router();
+  const agents = options.initialAgents ? new Map(options.initialAgents.map(agent => [agent.id, agent])) : registryCache;
+  const healthTimeoutMs = options.healthTimeoutMs ?? DEFAULT_HEALTH_TIMEOUT_MS;
 
-  // POST /api/agents/register - Register an agent
-  router.post('/register', (req: Request, res: Response) => {
-    const { agentId, capabilities, pricingXLM, endpoint, stellarPublicKey } = req.body;
+  router.get("/", (_req: Request, res: Response): void => {
+    res.status(200).json(Array.from(agents.values()));
+  });
 
-    if (!agentId || !capabilities || !Array.isArray(capabilities) || capabilities.length === 0) {
-      return res.status(400).json({ error: 'agentId and capabilities array are required' });
+  router.get("/:id", (req: Request, res: Response): void => {
+    const agent = agents.get(req.params.id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
     }
 
-    const agent: RegisteredAgent = {
-      agentId,
-      capabilities,
-      pricingXLM: pricingXLM ?? 0.5,
-      endpoint: endpoint ?? '',
-      stellarPublicKey: stellarPublicKey ?? '',
-      registeredAt: new Date().toISOString(),
+    res.status(200).json(agent);
+  });
+
+  router.get("/:id/health", async (req: Request, res: Response): Promise<void> => {
+    const agent = agents.get(req.params.id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    const startedAt = Date.now();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), healthTimeoutMs);
+
+    try {
+      const response = await fetch(agent.endpoint, {
+        method: "GET",
+        signal: controller.signal,
+      });
+
+      res.status(200).json({
+        status: response.ok ? "healthy" : "unreachable",
+        latencyMs: Date.now() - startedAt,
+      });
+    } catch {
+      res.status(200).json({
+        status: "unreachable",
+        latencyMs: Date.now() - startedAt,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
+  router.post("/", (req: Request, res: Response): void => {
+    const parse = RegisterAgentSchema.safeParse(req.body);
+    if (!parse.success) {
+      res.status(400).json({ error: parse.error.flatten() });
+      return;
+    }
+
+    const agent: AgentRecord = {
+      ...parse.data,
+      status: parse.data.status ?? "registered",
     };
 
-    agentRegistry.set(agentId, agent);
-
-    return res.status(201).json({
-      message: 'Agent registered successfully',
-      agent,
-    });
-  });
-
-  // GET /api/agents - List all registered agents
-  router.get('/', (req: Request, res: Response) => {
-    const agents = Array.from(agentRegistry.values());
-    return res.json({
-      agents,
-      count: agents.length,
-    });
-  });
-
-  // GET /api/agents/:capability - Discover agents by capability
-  router.get('/capability/:capability', (req: Request, res: Response) => {
-    const { capability } = req.params;
-    const agents = Array.from(agentRegistry.values())
-      .filter(agent => agent.capabilities.includes(capability));
-    
-    return res.json({
-      capability,
-      agents,
-      count: agents.length,
-    });
+    agents.set(agent.id, agent);
+    res.status(201).json(agent);
   });
 
   return router;
 }
+
+export const agentsRouter = createAgentsRouter();

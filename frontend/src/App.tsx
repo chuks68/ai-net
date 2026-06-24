@@ -8,29 +8,38 @@ import NewTaskPage from './pages/tasks/NewTaskPage'
 import TaskDetailPage from './pages/TaskDetailPage'
 import RendererDemoPage from './pages/RendererDemoPage'
 import WalletPage from './pages/WalletPage'
+import DashboardPage from './pages/dashboard'
+import ErrorBoundary from './components/common/ErrorBoundary'
 
 const AppContent: React.FC = () => {
   return (
     <Router>
-      <AppShell>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/agents" element={<AgentsPage />} />
-          <Route path="/tasks/new" element={<NewTaskPage />} />
-          <Route path="/tasks/:id" element={<TaskDetailPage />} />
-          <Route path="/wallet" element={<WalletPage />} />
-          <Route path="/renderer-demo" element={<RendererDemoPage />} />
-        </Routes>
-      </AppShell>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/*" element={
+          <AppShell>
+            <Routes>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/wallet" element={<WalletPage />} />
+              <Route path="/agents" element={<AgentsPage />} />
+              <Route path="/tasks/new" element={<NewTaskPage />} />
+              <Route path="/tasks/:id" element={<TaskDetailPage />} />
+              <Route path="/renderer-demo" element={<RendererDemoPage />} />
+            </Routes>
+          </AppShell>
+        } />
+      </Routes>
     </Router>
   )
 }
 
 const App: React.FC = () => {
   return (
-    <WalletProvider>
-      <AppContent />
-    </WalletProvider>
+    <ErrorBoundary>
+      <WalletProvider>
+        <AppContent />
+      </WalletProvider>
+    </ErrorBoundary>
   )
 }
 

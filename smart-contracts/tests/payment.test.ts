@@ -83,6 +83,25 @@ describe('BigInt Stroop Conversion Calculations', () => {
     expect(stroopsToXlm(0n)).toBe('0.0000000');
     expect(stroopsToXlm(1234567890123n)).toBe('123456.7890123');
   });
+
+  it('documents the scientific-notation precision bug when 1e-7 is passed as a JS number', () => {
+    // 0.0000001 and 1e-7 are the identical IEEE-754 float. Number#toString() renders ANY
+    // JS number below 1e-6 in scientific notation (e.g. "1e-7"), and xlmToStroops does not
+    // special-case that format before handing it to BigInt(), which cannot parse "1e-7".
+    // Passing the STRING form ('0.0000001', tested above) works fine — only the bare NUMBER
+    // form is affected. This is captured here as a known sharp edge, not a fix.
+    expect(() => xlmToStroops(1e-7)).toThrow(/Cannot convert 1e-7 to a BigInt/);
+    expect(() => xlmToStroops(0.0000001)).toThrow(/Cannot convert 1e-7 to a BigInt/);
+  });
+
+  it('correctly parses large XLM amounts (string and bigint) without overflow', () => {
+    // 922,337,203.6854775 XLM ≈ Stellar's int64 stroop ceiling — exercised as a string
+    // (the safe input type for large amounts) and as a bigint passthrough.
+    expect(xlmToStroops('922337203.6854775')).toBe(9223372036854775n);
+    expect(xlmToStroops('1000000000')).toBe(10000000000000000n);
+    expect(xlmToStroops(123456789n)).toBe(1234567890000000n);
+    expect(stroopsToXlm(9223372036854775n)).toBe('922337203.6854775');
+  });
 });
 
 describe('Unit Tests with Mocked Horizon', () => {
@@ -90,6 +109,7 @@ describe('Unit Tests with Mocked Horizon', () => {
   let agentKeypair: Keypair;
   let taskId: string;
   let envelopeXdr: string;
+  let claimEnvelopeXdr: string;
   let originalSetTimeout: any;
 
   beforeAll(() => {
@@ -118,6 +138,26 @@ describe('Unit Tests with Mocked Horizon', () => {
       .build();
     tx.sign(coordinatorKeypair);
     envelopeXdr = tx.toEnvelope().toXDR('base64');
+
+    // Build a second envelope sharing the SAME memo, but whose op[0] is claimClaimableBalance
+    // rather than createClaimableBalance — used to verify resolveBalanceId's try/catch "skip
+    // and continue" logic against a history record that should NOT resolve.
+    const claimAccount = new Account(coordinatorKeypair.publicKey(), '124');
+    const claimTx = new TransactionBuilder(claimAccount, {
+      fee: '100',
+      networkPassphrase: Networks.TESTNET,
+    })
+      .addOperation(
+        Operation.claimClaimableBalance({
+          balanceId:
+            '00000000da0d57da7d4850e7fc10d2a9d0ebc731f7afb40574c03395b17d49149b91f5be',
+        })
+      )
+      .addMemo(Memo.text(taskId))
+      .setTimeout(180)
+      .build();
+    claimTx.sign(coordinatorKeypair);
+    claimEnvelopeXdr = claimTx.toEnvelope().toXDR('base64');
 
     // Speed up tests by skipping timeout delay
     originalSetTimeout = global.setTimeout;
@@ -214,6 +254,227 @@ describe('Unit Tests with Mocked Horizon', () => {
 
     expect(hash).toBe('mock_tx_hash');
     expect(mockLoadAccount).toHaveBeenCalledTimes(3);
+  });
+
+  it('lockEscrow builds, signs and submits a createClaimableBalance transaction, returning the tx hash', async () => {
+    const hash = await lockEscrow(
+      coordinatorKeypair,
+      agentKeypair.publicKey(),
+      '25.5',
+      'task_plain_lock'
+    );
+
+    expect(hash).toBe('mock_tx_hash');
+    expect(mockSubmitTransaction).toHaveBeenCalledTimes(1);
+
+    const submittedTx = mockSubmitTransaction.mock.calls[0][0];
+    expect(submittedTx.operations).toHaveLength(1);
+    expect(submittedTx.operations[0].type).toBe('createClaimableBalance');
+    expect(submittedTx.operations[0].amount).toBe('25.5000000');
+  });
+
+  it('lockEscrow rejects a taskId longer than the 28-byte Memo.text limit without contacting Horizon', async () => {
+    const longTaskId = 'a'.repeat(29); // 29 bytes > 28-byte limit
+
+    await expect(
+      lockEscrow(coordinatorKeypair, agentKeypair.publicKey(), '1', longTaskId)
+    ).rejects.toThrow('taskId exceeds the 28-byte Stellar Memo.text limit.');
+
+    expect(mockLoadAccount).not.toHaveBeenCalled();
+    expect(mockSubmitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('lockEscrow falls back to a baseFee of 100 stroops when fetchBaseFee fails', async () => {
+    mockFetchBaseFee.mockRejectedValueOnce(new Error('horizon fee endpoint unavailable'));
+
+    const hash = await lockEscrow(
+      coordinatorKeypair,
+      agentKeypair.publicKey(),
+      '1',
+      'task_fee_fallback'
+    );
+
+    expect(hash).toBe('mock_tx_hash');
+    const submittedTx = mockSubmitTransaction.mock.calls[0][0];
+    expect(submittedTx.fee).toBe('100'); // 1 operation × fallback baseFee of 100
+  });
+
+  it('releasePayment claims the balance and pays the agent, returning the tx hash', async () => {
+    mockTransactionsCall.mockResolvedValueOnce({
+      records: [{ memo_type: 'text', memo: taskId, envelope_xdr: envelopeXdr }],
+    });
+    mockClaimableBalanceCall.mockResolvedValueOnce({ amount: '42.1234567' });
+
+    const hash = await releasePayment(coordinatorKeypair, agentKeypair.publicKey(), taskId);
+
+    expect(hash).toBe('mock_tx_hash');
+    const submittedTx = mockSubmitTransaction.mock.calls[0][0];
+    expect(submittedTx.operations).toHaveLength(2);
+    expect(submittedTx.operations[0].type).toBe('claimClaimableBalance');
+    expect(submittedTx.operations[1].type).toBe('payment');
+    expect(submittedTx.operations[1].destination).toBe(agentKeypair.publicKey());
+    // The paid amount comes from the live balance lookup, not a hardcoded value
+    expect(submittedTx.operations[1].amount).toBe('42.1234567');
+  });
+
+  it('releasePayment propagates a non-404 error unrelated to settlement', async () => {
+    mockTransactionsCall.mockResolvedValueOnce({
+      records: [{ memo_type: 'text', memo: taskId, envelope_xdr: envelopeXdr }],
+    });
+    mockClaimableBalanceCall.mockRejectedValueOnce(new Error('horizon internal error'));
+
+    await expect(
+      releasePayment(coordinatorKeypair, agentKeypair.publicKey(), taskId)
+    ).rejects.toThrow('horizon internal error');
+  });
+
+  it('refundEscrow claims the balance back to the coordinator, returning the tx hash', async () => {
+    mockTransactionsCall.mockResolvedValueOnce({
+      records: [{ memo_type: 'text', memo: taskId, envelope_xdr: envelopeXdr }],
+    });
+    mockClaimableBalanceCall.mockResolvedValueOnce({ amount: '10.0000000' });
+
+    const hash = await refundEscrow(coordinatorKeypair, taskId);
+
+    expect(hash).toBe('mock_tx_hash');
+    const submittedTx = mockSubmitTransaction.mock.calls[0][0];
+    expect(submittedTx.operations).toHaveLength(1);
+    expect(submittedTx.operations[0].type).toBe('claimClaimableBalance');
+  });
+
+  it('refundEscrow throws EscrowAlreadySettledError when the balance is already claimed/refunded', async () => {
+    mockTransactionsCall.mockResolvedValueOnce({
+      records: [{ memo_type: 'text', memo: taskId, envelope_xdr: envelopeXdr }],
+    });
+    const err = new NotFoundError('Not Found', {
+      status: 404,
+      statusText: 'Not Found',
+      headers: {},
+      config: {},
+      data: {},
+    });
+    mockClaimableBalanceCall.mockRejectedValueOnce(err);
+
+    await expect(refundEscrow(coordinatorKeypair, taskId)).rejects.toThrow(
+      EscrowAlreadySettledError
+    );
+  });
+
+  it('refundEscrow propagates a non-404 error unrelated to settlement', async () => {
+    mockTransactionsCall.mockResolvedValueOnce({
+      records: [{ memo_type: 'text', memo: taskId, envelope_xdr: envelopeXdr }],
+    });
+    mockClaimableBalanceCall.mockRejectedValueOnce(new Error('horizon internal error'));
+
+    await expect(refundEscrow(coordinatorKeypair, taskId)).rejects.toThrow(
+      'horizon internal error'
+    );
+  });
+
+  it('resolveBalanceId skips claim/refund history records sharing the memo and finds the original creation tx', async () => {
+    // The claim-style record appears FIRST in history (desc order = most recent first),
+    // ahead of the original creation record — resolveBalanceId must skip it via its
+    // try/catch and continue scanning rather than failing on the first candidate.
+    mockTransactionsCall.mockResolvedValueOnce({
+      records: [
+        { memo_type: 'text', memo: taskId, envelope_xdr: claimEnvelopeXdr },
+        { memo_type: 'text', memo: taskId, envelope_xdr: envelopeXdr },
+      ],
+    });
+    mockClaimableBalanceCall.mockResolvedValueOnce({ amount: '10.0000000' });
+
+    const hash = await refundEscrow(coordinatorKeypair, taskId);
+    expect(hash).toBe('mock_tx_hash');
+  });
+
+  it('resolveBalanceId ignores history records with a different memo or non-text memo_type', async () => {
+    mockTransactionsCall.mockResolvedValueOnce({
+      records: [
+        { memo_type: 'text', memo: 'unrelated_task', envelope_xdr: 'irrelevant' },
+        { memo_type: 'hash', memo: taskId, envelope_xdr: 'irrelevant' },
+        { memo_type: 'text', memo: taskId, envelope_xdr: envelopeXdr },
+      ],
+    });
+    mockClaimableBalanceCall.mockResolvedValueOnce({ amount: '10.0000000' });
+
+    const hash = await refundEscrow(coordinatorKeypair, taskId);
+    expect(hash).toBe('mock_tx_hash');
+  });
+
+  it('resolveBalanceId throws a descriptive error (not EscrowAlreadySettledError) when no creation tx exists for the taskId', async () => {
+    mockTransactionsCall.mockResolvedValueOnce({ records: [] });
+
+    await expect(
+      releasePayment(coordinatorKeypair, agentKeypair.publicKey(), 'task_never_locked')
+    ).rejects.toThrow(/No CreateClaimableBalance transaction found/);
+
+    // Distinguish "never existed" from "already settled" — Horizon's claimableBalance
+    // endpoint should never even be reached in this case
+    expect(mockClaimableBalanceCall).not.toHaveBeenCalled();
+  });
+
+  describe('getEscrowBalance', () => {
+    const originalEnv = process.env;
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it('throws when neither STELLAR_COORDINATOR_PUBLIC_KEY nor STELLAR_SECRET_KEY is configured', async () => {
+      delete process.env.STELLAR_COORDINATOR_PUBLIC_KEY;
+      delete process.env.STELLAR_SECRET_KEY;
+
+      await expect(getEscrowBalance(taskId)).rejects.toThrow(
+        'Either STELLAR_COORDINATOR_PUBLIC_KEY or STELLAR_SECRET_KEY must be set.'
+      );
+    });
+
+    it('derives the lookup key from STELLAR_SECRET_KEY and returns the active escrow amount', async () => {
+      delete process.env.STELLAR_COORDINATOR_PUBLIC_KEY;
+      process.env.STELLAR_SECRET_KEY = coordinatorKeypair.secret();
+
+      mockTransactionsCall.mockResolvedValueOnce({
+        records: [{ memo_type: 'text', memo: taskId, envelope_xdr: envelopeXdr }],
+      });
+      mockClaimableBalanceCall.mockResolvedValueOnce({ amount: '7.5000000' });
+
+      await expect(getEscrowBalance(taskId)).resolves.toBe(7.5);
+    });
+
+    it('returns 0 when the claimable balance has already been settled (404)', async () => {
+      process.env.STELLAR_COORDINATOR_PUBLIC_KEY = coordinatorKeypair.publicKey();
+
+      mockTransactionsCall.mockResolvedValueOnce({
+        records: [{ memo_type: 'text', memo: taskId, envelope_xdr: envelopeXdr }],
+      });
+      const err = new NotFoundError('Not Found', {
+        status: 404,
+        statusText: 'Not Found',
+        headers: {},
+        config: {},
+        data: {},
+      });
+      mockClaimableBalanceCall.mockRejectedValueOnce(err);
+
+      await expect(getEscrowBalance(taskId)).resolves.toBe(0);
+    });
+
+    it('returns 0 when no CreateClaimableBalance transaction was ever recorded for the taskId', async () => {
+      process.env.STELLAR_COORDINATOR_PUBLIC_KEY = coordinatorKeypair.publicKey();
+      mockTransactionsCall.mockResolvedValueOnce({ records: [] });
+
+      await expect(getEscrowBalance('task_never_locked')).resolves.toBe(0);
+    });
+
+    it('propagates unexpected, non-404 errors instead of silently returning 0', async () => {
+      process.env.STELLAR_COORDINATOR_PUBLIC_KEY = coordinatorKeypair.publicKey();
+      mockTransactionsCall.mockResolvedValueOnce({
+        records: [{ memo_type: 'text', memo: taskId, envelope_xdr: envelopeXdr }],
+      });
+      mockClaimableBalanceCall.mockRejectedValueOnce(new Error('horizon 500'));
+
+      await expect(getEscrowBalance(taskId)).rejects.toThrow('horizon 500');
+    });
   });
 });
 

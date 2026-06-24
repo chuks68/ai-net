@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-export type PaymentStatus = "pending" | "locked" | "released" | "refunded";
+export type PaymentStatus = "locked" | "released" | "refunded";
 
 export interface PaymentRecord {
   taskId: string;
@@ -41,7 +41,7 @@ export function closeDb(): void {
 export interface PaymentDb {
   insert(record: PaymentRecord): void;
   findByKey(taskId: string, nodeId: string): PaymentRecord | undefined;
-  updateStatus(taskId: string, nodeId: string, status: PaymentStatus, txHash: string | null): void;
+  updateStatus(taskId: string, nodeId: string, status: PaymentStatus, txHash: string): void;
 }
 
 export function createPaymentDb(db: Database.Database): PaymentDb {
@@ -72,7 +72,7 @@ export function createPaymentDb(db: Database.Database): PaymentDb {
       };
     },
 
-    updateStatus(taskId: string, nodeId: string, status: PaymentStatus, txHash: string | null): void {
+    updateStatus(taskId: string, nodeId: string, status: PaymentStatus, txHash: string): void {
       db.prepare(
         "UPDATE payments SET status = ?, txHash = ? WHERE taskId = ? AND nodeId = ?"
       ).run(status, txHash, taskId, nodeId);

@@ -2,12 +2,8 @@
 import React from 'react';
 import { Skeleton } from '../common/Skeleton';
 import styles from './RecentTasksTable.module.css';
-
-interface Task {
-  id: string;
-  status: string;
-  createdAt: string; // ISO string
-}
+import { getRecentTasks } from '@services/api';
+import type { TaskResponse } from '../../types/api';
 
 interface Props {
   walletAddress: string;
@@ -15,15 +11,18 @@ interface Props {
 }
 
 export const RecentTasksTable: React.FC<Props> = ({ walletAddress, loading }) => {
-  const [tasks, setTasks] = React.useState<Task[]>([]);
+  const [tasks, setTasks] = React.useState<TaskResponse[]>([]);
 
   React.useEffect(() => {
     if (!walletAddress) return;
     const fetchTasks = async () => {
       try {
-        const res = await fetch(`/api/wallets/${walletAddress}/tasks?limit=5`);
-        const data = await res.json();
-        setTasks(data);
+        const data = await getRecentTasks(walletAddress);
+        const mappedTasks = data.map(task => ({
+          ...task,
+          id: task.id || task.taskId,
+        }));
+        setTasks(mappedTasks);
       } catch (e) {
         console.error(e);
         setTasks([]);
@@ -62,16 +61,19 @@ export const RecentTasksTable: React.FC<Props> = ({ walletAddress, loading }) =>
         </tr>
       </thead>
       <tbody>
-        {tasks.map((task) => (
-          <tr key={task.id}>
-            <td>{task.id.slice(0, 8)}…</td>
-            <td className={styles[task.status.toLowerCase()] || styles.default}>{task.status}</td>
-            <td>{new Date(task.createdAt).toLocaleString()}</td>
-            <td>
-              <a href={`/tasks/${task.id}`} className={styles.viewLink}>View</a>
-            </td>
-          </tr>
-        ))}
+        {tasks.map((task) => {
+          const taskId = task.id || task.taskId;
+          return (
+            <tr key={taskId}>
+              <td>{taskId.slice(0, 8)}…</td>
+              <td className={styles[task.status.toLowerCase()] || styles.default}>{task.status}</td>
+              <td>{new Date(task.createdAt).toLocaleString()}</td>
+              <td>
+                <a href={`/tasks/${taskId}`} className={styles.viewLink}>View</a>
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );

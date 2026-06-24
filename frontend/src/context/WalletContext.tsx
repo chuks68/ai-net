@@ -10,6 +10,7 @@ export class InvalidKeypairError extends Error {
 
 interface WalletContextType {
   publicKey: string | null
+  keypair: Keypair | null
   connected: boolean
   connect: (secretKey: string) => Promise<void>
   disconnect: () => void
@@ -19,30 +20,46 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined)
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [publicKey, setPublicKey] = useState<string | null>(() => {
-    return localStorage.getItem('wallet_pubkey')
+    return localStorage.getItem('wallet_pubkey') || localStorage.getItem('walletAddress')
   })
+  const [keypair, setKeypair] = useState<Keypair | null>(null)
 
   const connected = !!publicKey
 
   const connect = async (secretKey: string) => {
     try {
-      // Validates Stellar secret key (must be valid format starting with S)
-      const keypair = Keypair.fromSecret(secretKey)
-      const pubKey = keypair.publicKey()
+      const kp = Keypair.fromSecret(secretKey)
+      const pubKey = kp.publicKey()
+      setKeypair(kp)
       setPublicKey(pubKey)
       localStorage.setItem('wallet_pubkey', pubKey)
-    } catch (e) {
-      throw new InvalidKeypairError('Invalid Stellar secret key. Must start with S and be 56 characters.')
+      localStorage.setItem('walletAddress', pubKey)
+    } catch (error: unknown) {
+      throw new InvalidKeypairError(
+        error instanceof Error ? error.message : 'Invalid Stellar secret key. Must start with S and be 56 characters.'
+      )
     }
   }
 
   const disconnect = () => {
     setPublicKey(null)
+    setKeypair(null)
     localStorage.removeItem('wallet_pubkey')
+    localStorage.removeItem('walletAddress')
   }
 
+  React.useEffect(() => {
+    const handleDisconnectEvent = () => {
+      disconnect()
+    }
+    window.addEventListener('wallet_disconnected', handleDisconnectEvent)
+    return () => {
+      window.removeEventListener('wallet_disconnected', handleDisconnectEvent)
+    }
+  }, [])
+
   return (
-    <WalletContext.Provider value={{ publicKey, connected, connect, disconnect }}>
+    <WalletContext.Provider value={{ publicKey, keypair, connected, connect, disconnect }}>
       {children}
     </WalletContext.Provider>
   )
