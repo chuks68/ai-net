@@ -24,6 +24,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
+  app.close();
   inMemoryDb.close();
   jest.restoreAllMocks();
 });
