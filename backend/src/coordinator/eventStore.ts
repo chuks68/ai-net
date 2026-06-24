@@ -2,9 +2,9 @@ import Database from 'better-sqlite3';
 import type { DAGEvent, DAGEventType } from './types';
 
 /**
- * A persisted event with its monotonic store sequence id.  The `seq` is the
- * SQLite autoincrement row id and defines the canonical chronological order
- * used for replay and for streaming "events newer than X".
+ * A persisted event with its per-task sequence id.  The `seq` is assigned by
+ * the EventBus (monotonic per taskId, starting at 0) and defines the canonical
+ * chronological order used for replay and for streaming "events newer than X".
  */
 export interface StoredEvent extends DAGEvent {
   seq: number;
@@ -41,7 +41,8 @@ export function createEventStore(db?: Database.Database | string): EventStore {
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS task_events (
-      seq         INTEGER PRIMARY KEY AUTOINCREMENT,
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      seq         INTEGER NOT NULL,
       taskId      TEXT NOT NULL,
       type        TEXT NOT NULL,
       nodeId      TEXT,
@@ -52,8 +53,8 @@ export function createEventStore(db?: Database.Database | string): EventStore {
   `);
 
   const insertStmt = database.prepare(`
-    INSERT INTO task_events (taskId, type, nodeId, timestamp, payloadJson)
-    VALUES (@taskId, @type, @nodeId, @timestamp, @payloadJson)
+    INSERT INTO task_events (seq, taskId, type, nodeId, timestamp, payloadJson)
+    VALUES (@seq, @taskId, @type, @nodeId, @timestamp, @payloadJson)
   `);
   const listStmt = database.prepare(
     'SELECT * FROM task_events WHERE taskId = ? ORDER BY seq ASC'
@@ -76,14 +77,18 @@ export function createEventStore(db?: Database.Database | string): EventStore {
 
   return {
     append(event: DAGEvent): StoredEvent {
-      const info = insertStmt.run({
+      // seq is assigned upstream by the EventBus; default to 0 only for events
+      // that never passed through the bus (defensive — should not happen).
+      const seq = event.seq ?? 0;
+      insertStmt.run({
+        seq,
         taskId: event.taskId,
         type: event.type,
         nodeId: event.nodeId ?? null,
         timestamp: event.timestamp,
         payloadJson: event.payload !== undefined ? JSON.stringify(event.payload) : null,
       });
-      return { ...event, seq: Number(info.lastInsertRowid) };
+      return { ...event, seq };
     },
 
     listByTask(taskId: string): StoredEvent[] {

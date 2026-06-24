@@ -94,8 +94,9 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
   const httpServer = createServer(app);
 
   // ── Event persistence ──────────────────────────────────────────────────────
-  // Record every Coordinator event so a (re)connecting client can replay the
-  // task's full history before live streaming begins.
+  // Record every Coordinator event (with its EventBus-assigned per-task seq) so
+  // a (re)connecting client can replay history before live streaming begins —
+  // either the full history, or only events past a `?lastEventId` cursor.
   const eventStore = opts.eventStore ?? createEventStore();
   const stopRecording = eventBus.subscribeAll(event => eventStore.append(event));
 
