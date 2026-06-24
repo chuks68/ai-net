@@ -144,8 +144,12 @@ function collectWsEvents(taskId: string, timeoutMs = 30_000): Promise<Array<Reco
       reject(new Error('WS collection timed out'));
     }, timeoutMs);
 
+    // Auth handshake: the owning wallet must be sent as the first message.
+    ws.on('open', () => ws.send(JSON.stringify({ walletPublicKey: 'GFAKEWALLETPUBLICKEY' })));
+
     ws.on('message', raw => {
       const event = JSON.parse(raw.toString()) as Record<string, unknown>;
+      if (event['type'] === 'ping') return; // heartbeat, not a DAG event
       events.push(event);
       if (event['type'] === 'task_completed' || event['type'] === 'task_failed') {
         clearTimeout(timer);

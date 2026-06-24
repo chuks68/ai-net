@@ -1,7 +1,5 @@
-import express from "express";
-import cors from "cors";
-import { tasksRouter } from "./routes/tasks";
-import { agentsRouter } from "./routes/agents";
+// Re-export from app.ts — single source of truth for createApp
+export { createApp, type AppOptions } from "./app";
 
 export function createApp() {
   const app = express();
