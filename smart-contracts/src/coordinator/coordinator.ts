@@ -1,11 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
-import { Capability, discoverAgents } from '../registry/registry';
+import { discoverAgents } from '../registry/registry';
 
 export interface DAGNode {
   id: string;
-  taskType: Capability;
+  taskType: string;
   dependsOn: string[];
   assignedAgent?: string;
   status: 'pending' | 'running' | 'done' | 'failed';
@@ -42,7 +42,7 @@ export async function decomposeTask(userPrompt: string): Promise<DAGNode[]> {
     { headers: { Authorization: `Bearer ${process.env.VENICE_API_KEY}` } },
   );
 
-  const raw: Array<{ id: string; taskType: Capability; dependsOn: string[] }> = JSON.parse(
+  const raw: Array<{ id: string; taskType: string; dependsOn: string[] }> = JSON.parse(
     response.data.choices[0].message.content,
   );
 
@@ -103,7 +103,6 @@ export async function executeDAG(
 
     const status: string = node.status;
     if (status === 'failed') {
-      // Mark all dependents failed
       for (const n of dag) {
         if (n.dependsOn.includes(node.id)) {
           nodeMap.get(n.id)!.status = 'failed';
@@ -159,9 +158,8 @@ function persistTrace(taskId: string, dag: DAGNode[]): void {
   fs.writeFileSync(path.join(dir, `${taskId}.json`), JSON.stringify(dag, null, 2));
 }
 
-// ── Default node runner (calls assigned agent) ────────────────────────────────
+// ── Default node runner ───────────────────────────────────────────────────────
 
 async function defaultRunNode(node: DAGNode, _context: Record<string, unknown>): Promise<unknown> {
-  // Placeholder: real implementation would call the agent's endpoint/contract
   return { nodeId: node.id, agentId: node.assignedAgent };
 }

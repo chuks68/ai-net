@@ -28,8 +28,6 @@ function makeFiveNodeDAG(): DAGNode[] {
   ];
 }
 
-// ── Setup ─────────────────────────────────────────────────────────────────────
-
 beforeEach(() => clearRegistry());
 
 // ── decomposeTask ─────────────────────────────────────────────────────────────
@@ -72,12 +70,11 @@ describe('executeDAG — topological order', () => {
     const order: string[] = [];
     const dag = makeFiveNodeDAG();
     ['research', 'risk', 'coding', 'design', 'report'].forEach((cap) =>
-      registerAgent({ id: cap, name: cap, capability: cap as any, priceXLM: 1, stellarAddress: '' }),
+      registerAgent({ id: cap, name: cap, capability: cap, priceXLM: 1, stellarAddress: '' }),
     );
     assignAgents(dag);
 
-    const runNode = async (node: DAGNode, ctx: Record<string, unknown>) => {
-      // All dependencies must already be in order before this node
+    const runNode = async (node: DAGNode, _ctx: Record<string, unknown>) => {
       node.dependsOn.forEach((dep) => expect(order).toContain(dep));
       order.push(node.id);
       return {};

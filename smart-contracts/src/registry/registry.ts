@@ -1,9 +1,7 @@
-export type Capability = 'research' | 'risk' | 'coding' | 'design' | 'report';
-
 export interface Agent {
   id: string;
   name: string;
-  capability: Capability;
+  capability: string;
   priceXLM: number;
   stellarAddress: string;
 }
