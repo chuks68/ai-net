@@ -48,6 +48,9 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
   const releasePayment: PaymentReleaseFn =
     opts.releasePayment ?? createPaymentReleaseFn(tryLoadStellarRelease());
 
+  // ── Agent routes ───────────────────────────────────────────────────────────
+  app.use('/api/agents', createAgentsRouter());
+
   // ── POST /api/tasks ────────────────────────────────────────────────────────
   app.post('/api/tasks', authMiddleware, rateLimitMiddleware, (req: Request, res: Response) => {
     const { prompt, walletPublicKey } = req.body as {
