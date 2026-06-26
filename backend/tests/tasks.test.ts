@@ -21,12 +21,14 @@ beforeAll(() => {
   `);
   // Override getTaskDb to return the in-memory db
   jest.spyOn(require("../src/db/tasks"), "getTaskDb").mockReturnValue(inMemoryDb);
+  jest.useFakeTimers();
 });
 
 afterAll(() => {
   app.close();
   inMemoryDb.close();
   jest.restoreAllMocks();
+  jest.useRealTimers();
 });
 
 const app = createApp();
