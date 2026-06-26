@@ -9,41 +9,87 @@ const makeVenice = (response: object) => ({
 });
 
 const baseDesignResponse = {
-  components: ['API Gateway', 'Order Service', 'Postgres Database'],
-  interactions: [
-    'Client calls API Gateway',
-    'API Gateway routes to Order Service',
-    'Order Service persists to Postgres Database',
-  ],
-  diagrams: [
+  wireframes: [
     {
-      title: 'System Overview',
-      type: 'flowchart',
-      description: 'High-level component flow from client to database.',
+      name: 'Dashboard Overview',
+      description: 'A scan-friendly workspace for product performance.',
+      layout: 'grid',
+      elements: [
+        {
+          name: 'KPI Row',
+          type: 'metric group',
+          description: 'Four key metrics with compact labels and trends.',
+        },
+      ],
     },
     {
-      title: 'Order Creation',
-      type: 'sequence',
-      description: 'Sequence of calls when creating an order.',
+      name: 'Project Detail',
+      description: 'A focused view for reviewing work and next actions.',
+      layout: 'flex',
+      elements: [
+        {
+          name: 'Activity Timeline',
+          type: 'timeline',
+          description: 'Chronological product and team updates.',
+        },
+      ],
     },
   ],
-  rationale: 'A layered service architecture keeps concerns isolated and scalable.',
+  colorPalette: [
+    { name: 'Surface', hex: '#101820', usage: 'Primary app background' },
+    { name: 'Panel', hex: '#1E2A32', usage: 'Grouped controls and tables' },
+    { name: 'Accent', hex: '#27C5A4', usage: 'Primary actions and highlights' },
+    { name: 'Warning', hex: '#F2B84B', usage: 'Attention states' },
+  ],
+  componentHierarchy: [
+    {
+      id: 'app-shell',
+      name: 'App Shell',
+      parentId: null,
+      description: 'Owns page chrome and global layout.',
+    },
+    {
+      id: 'dashboard',
+      name: 'Dashboard',
+      parentId: 'app-shell',
+      description: 'Displays overview modules.',
+    },
+    {
+      id: 'kpi-row',
+      name: 'KPI Row',
+      parentId: 'dashboard',
+      description: 'Groups performance metrics.',
+    },
+  ],
+  assetManifest: [
+    {
+      name: 'Status Icons',
+      type: 'icon',
+      description: 'Consistent glyphs for success, warning, and failure states.',
+      suggestedSource: 'lucide-react',
+    },
+    {
+      name: 'Inter UI',
+      type: 'font',
+      description: 'Readable interface typeface.',
+      suggestedSource: 'Google Fonts',
+    },
+  ],
 };
 
 describe('DesignAgent', () => {
-  it('returns valid DesignOutput with at least 1 component and 1 diagram', async () => {
+  it('returns valid DesignOutput with at least 2 wireframe sections', async () => {
     const venice = makeVenice(baseDesignResponse);
     const agent = new DesignAgent(venice as unknown as VeniceClient);
     const result = await agent.execute({
-      prompt: 'Design an order management system',
+      prompt: 'Design a product analytics dashboard',
     });
     const output = result.data as DesignOutput;
 
-    expect(output.components.length).toBeGreaterThanOrEqual(1);
-    expect(output.diagrams.length).toBeGreaterThanOrEqual(1);
-    expect(output.components).toContain('API Gateway');
-    expect(output.diagrams[0].type).toBe('flowchart');
-    expect(output.rationale).toBeTruthy();
+    expect(output.wireframes.length).toBeGreaterThanOrEqual(2);
+    expect(output.colorPalette.length).toBeGreaterThanOrEqual(4);
+    expect(output.colorPalette.length).toBeLessThanOrEqual(12);
+    expect(output.assetManifest.some((asset) => asset.type === 'icon')).toBe(true);
     expect(result.capability).toBe('design');
   });
 
@@ -54,35 +100,47 @@ describe('DesignAgent', () => {
 
     expect(venice.getModelForAgent).toHaveBeenCalledWith('design');
     expect(venice.complete).toHaveBeenCalledWith(
-      expect.any(String),
+      expect.stringContaining('senior product designer'),
       'venice-xl',
     );
   });
 
-  it('Zod rejects response missing components field', async () => {
-    const venice = makeVenice({
-      interactions: [],
-      diagrams: [
-        {
-          title: 'Overview',
-          type: 'flowchart',
-          description: 'A diagram.',
-        },
-      ],
-      rationale: 'Some rationale.',
-    });
-    const agent = new DesignAgent(venice as unknown as VeniceClient);
-    await expect(agent.execute({ prompt: 'test' })).rejects.toThrow();
-  });
-
-  it('Zod rejects a diagram with an invalid type', async () => {
+  it('Zod rejects invalid hex color values', async () => {
     const venice = makeVenice({
       ...baseDesignResponse,
-      diagrams: [
+      colorPalette: [
+        ...baseDesignResponse.colorPalette.slice(0, 3),
+        { name: 'Broken', hex: '27C5A4', usage: 'Invalid missing hash' },
+      ],
+    });
+    const agent = new DesignAgent(venice as unknown as VeniceClient);
+    await expect(agent.execute({ prompt: 'test' })).rejects.toThrow();
+  });
+
+  it('Zod rejects a color palette outside the 4 to 12 token range', async () => {
+    const venice = makeVenice({
+      ...baseDesignResponse,
+      colorPalette: baseDesignResponse.colorPalette.slice(0, 3),
+    });
+    const agent = new DesignAgent(venice as unknown as VeniceClient);
+    await expect(agent.execute({ prompt: 'test' })).rejects.toThrow();
+  });
+
+  it('Zod rejects circular component hierarchy references', async () => {
+    const venice = makeVenice({
+      ...baseDesignResponse,
+      componentHierarchy: [
         {
-          title: 'Bad Diagram',
-          type: 'gantt',
-          description: 'Unsupported diagram type.',
+          id: 'parent',
+          name: 'Parent',
+          parentId: 'child',
+          description: 'Parent node.',
+        },
+        {
+          id: 'child',
+          name: 'Child',
+          parentId: 'parent',
+          description: 'Child node.',
         },
       ],
     });
@@ -90,8 +148,18 @@ describe('DesignAgent', () => {
     await expect(agent.execute({ prompt: 'test' })).rejects.toThrow();
   });
 
-  it('Zod rejects a response with an empty diagrams array', async () => {
-    const venice = makeVenice({ ...baseDesignResponse, diagrams: [] });
+  it('Zod rejects an asset manifest without an icon', async () => {
+    const venice = makeVenice({
+      ...baseDesignResponse,
+      assetManifest: [
+        {
+          name: 'Inter UI',
+          type: 'font',
+          description: 'Readable interface typeface.',
+          suggestedSource: 'Google Fonts',
+        },
+      ],
+    });
     const agent = new DesignAgent(venice as unknown as VeniceClient);
     await expect(agent.execute({ prompt: 'test' })).rejects.toThrow();
   });

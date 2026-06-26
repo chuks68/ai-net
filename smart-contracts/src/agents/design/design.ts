@@ -3,22 +3,107 @@ import { registerAgent } from '../../registry/registry';
 import { Agent, AgentResult, SubTask } from '../../types/agent';
 import { VeniceClient } from '../../venice/venice';
 
-const DiagramSpecSchema = z.object({
-  title: z.string(),
-  type: z.enum(['flowchart', 'sequence', 'erd']),
-  description: z.string(),
+const HexColorSchema = z
+  .string()
+  .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'hex must be #RGB or #RRGGBB');
+
+const UIElementSchema = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  description: z.string().min(1),
 });
+
+const WireframeSectionSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  layout: z.enum(['grid', 'flex', 'absolute']),
+  elements: z.array(UIElementSchema).min(1),
+});
+
+const ColorTokenSchema = z.object({
+  name: z.string().min(1),
+  hex: HexColorSchema,
+  usage: z.string().min(1),
+});
+
+const ComponentNodeSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  parentId: z.string().min(1).nullable().optional(),
+  description: z.string().min(1),
+});
+
+const AssetEntrySchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(['icon', 'image', 'font']),
+  description: z.string().min(1),
+  suggestedSource: z.string().min(1),
+});
+
+const ComponentHierarchySchema = z
+  .array(ComponentNodeSchema)
+  .min(1)
+  .superRefine((nodes, ctx) => {
+    const ids = new Set<string>();
+
+    for (const node of nodes) {
+      if (ids.has(node.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate component id: ${node.id}`,
+          path: [nodes.indexOf(node), 'id'],
+        });
+      }
+      ids.add(node.id);
+    }
+
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+
+    for (const node of nodes) {
+      if (node.parentId && !byId.has(node.parentId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Unknown parentId: ${node.parentId}`,
+          path: [nodes.indexOf(node), 'parentId'],
+        });
+      }
+
+      const visited = new Set<string>();
+      let current: typeof node | undefined = node;
+
+      while (current?.parentId) {
+        if (visited.has(current.id)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Circular component hierarchy at: ${node.id}`,
+            path: [nodes.indexOf(node), 'parentId'],
+          });
+          break;
+        }
+
+        visited.add(current.id);
+        current = byId.get(current.parentId);
+      }
+    }
+  });
 
 const DesignOutputSchema = z.object({
-  components: z.array(z.string()).min(1, 'At least one component is required'),
-  interactions: z.array(z.string()),
-  diagrams: z
-    .array(DiagramSpecSchema)
-    .min(1, 'At least one diagram is required'),
-  rationale: z.string(),
+  wireframes: z.array(WireframeSectionSchema).min(2),
+  colorPalette: z.array(ColorTokenSchema).min(4).max(12),
+  componentHierarchy: ComponentHierarchySchema,
+  assetManifest: z
+    .array(AssetEntrySchema)
+    .min(1)
+    .refine((assets) => assets.some((asset) => asset.type === 'icon'), {
+      message: 'assetManifest must include at least one icon asset',
+    }),
 });
 
-export type DiagramSpec = z.infer<typeof DiagramSpecSchema>;
+export type UIElement = z.infer<typeof UIElementSchema>;
+export type WireframeSection = z.infer<typeof WireframeSectionSchema>;
+export type ColorToken = z.infer<typeof ColorTokenSchema>;
+export type ComponentNode = z.infer<typeof ComponentNodeSchema>;
+export type AssetEntry = z.infer<typeof AssetEntrySchema>;
 export type DesignOutput = z.infer<typeof DesignOutputSchema>;
 
 const AGENT_ID = 'design-agent-1';
@@ -29,7 +114,13 @@ export class DesignAgent implements Agent {
   constructor(private readonly venice: VeniceClient) {}
 
   start(): void {
-    // registration happens on module load
+    registerAgent({
+      id: AGENT_ID,
+      name: AGENT_NAME,
+      capability: AGENT_CAPABILITY,
+      priceXLM: 1,
+      stellarAddress: '',
+    });
   }
 
   async healthCheck(): Promise<boolean> {
@@ -42,16 +133,17 @@ export class DesignAgent implements Agent {
       : '';
 
     const prompt = [
-      'You are a software architecture design assistant. Respond with valid JSON only, no markdown.',
-      'Format: {"components":["string"],"interactions":["string"],"diagrams":[{"title":"string","type":"flowchart|sequence|erd","description":"string"}],"rationale":"string"}',
-      'Provide at least one component and at least one diagram.',
+      'You are a senior product designer. Respond with valid JSON only, no markdown.',
+      'Create structured UI/UX guidance for the product description.',
+      'Format: {"wireframes":[{"name":"string","description":"string","layout":"grid|flex|absolute","elements":[{"name":"string","type":"string","description":"string"}]}],"colorPalette":[{"name":"string","hex":"#RRGGBB","usage":"string"}],"componentHierarchy":[{"id":"string","name":"string","parentId":"string|null","description":"string"}],"assetManifest":[{"name":"string","type":"icon|image|font","description":"string","suggestedSource":"string"}]}',
+      'Return at least 2 wireframe sections, 4 to 12 color tokens, a tree-shaped component hierarchy with no cycles, and at least one icon asset.',
+      'Every color hex must be a valid #RGB or #RRGGBB value.',
       upstreamContext,
-      `\nTask: ${task.prompt}`,
+      `\nProduct description: ${task.prompt}`,
     ].join('\n');
 
     const model = this.venice.getModelForAgent(AGENT_CAPABILITY);
     const content = await this.venice.complete(prompt, model);
-
     const parsed = DesignOutputSchema.parse(JSON.parse(content));
 
     return {
@@ -63,10 +155,4 @@ export class DesignAgent implements Agent {
   }
 }
 
-registerAgent({
-  id: AGENT_ID,
-  name: AGENT_NAME,
-  capability: AGENT_CAPABILITY,
-  priceXLM: 1,
-  stellarAddress: '',
-});
+new DesignAgent(new VeniceClient()).start();
