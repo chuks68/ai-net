@@ -24,6 +24,8 @@ export interface Task {
   dag: DAGNode[];
   createdAt: string;
   updatedAt: string;
+  /** Correlation ID for distributed tracing across HTTP request → coordinator → agent */
+  requestId?: string;
 }
 
 /** Events emitted by the coordinator */
@@ -42,4 +44,11 @@ export interface DAGEvent {
   nodeId?: string;
   timestamp: string;
   payload?: unknown;
+  /**
+   * Per-task monotonic sequence number assigned by the EventBus when the event
+   * is emitted. Starts at 0 for each taskId and increments by 1 per event, so
+   * a client can resume a stream from a known cursor. Absent only on events
+   * that have not yet passed through the bus.
+   */
+  seq?: number;
 }

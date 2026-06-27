@@ -1,19 +1,43 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 :root {
   --font-sans: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #020617 100%);
   --panel-bg: rgba(30, 41, 59, 0.7);
   --panel-border: rgba(255, 255, 255, 0.08);
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --primary: #6366f1;
+  
+  /* Layout Colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
+  --border-color: #e2e8f0;
+  --border-light: #f1f5f9;
+  
+  /* Text Colors */
+  --text-primary: #1a202c;
+  --text-secondary: #64748b;
+  --text-tertiary: #94a3b8;
+  
+  /* Brand Colors */
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --primary-light: rgba(59, 130, 246, 0.1);
   --primary-hover: #4f46e5;
   --success: #10b981;
   --danger: #ef4444;
   --accent: #f43f5e;
+}
+
+/* Dark mode variables (can be toggled via class) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --border-color: #334155;
+    --border-light: #1e293b;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #64748b;
+  }
 }
 
 * {
@@ -24,11 +48,17 @@
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-gradient);
+  background: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Ensure no horizontal scroll */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /* Glassmorphism panel styling */
@@ -53,13 +83,13 @@ button, .btn {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
 }
 
 button:hover, .btn:hover {
   background: var(--primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
 }
 
 button:active, .btn:active {
@@ -74,7 +104,7 @@ button:disabled, .btn:disabled {
   box-shadow: none;
 }
 
-/* Navigation layout */
+/* Navigation layout (legacy - will be replaced by AppShell) */
 header {
   display: flex;
   justify-content: space-between;
@@ -183,7 +213,7 @@ input[type="text"], input[type="number"], textarea {
 input:focus, textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
 }
 
 /* Error message and validation styling */
@@ -234,4 +264,35 @@ input:focus, textarea:focus {
 .dag-arrow {
   color: var(--text-secondary);
   font-size: 1.5rem;
+}
+
+/* Responsive design */
+@media (max-width: 767px) {
+  body {
+    font-size: 14px;
+  }
+  
+  main {
+    margin: 20px auto;
+    padding: 0 16px;
+  }
+  
+  .glass-panel {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  
+  header {
+    padding: 12px 16px;
+  }
+  
+  .dag-container {
+    flex-direction: column;
+    padding: 20px;
+  }
+  
+  .dag-node {
+    min-width: 120px;
+    padding: 12px 16px;
+  }
 }
