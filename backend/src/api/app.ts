@@ -39,10 +39,30 @@ function tryLoadStellarRelease(): StellarReleasePaymentFn | undefined {
   }
 }
 
+/** Log metadata about a completed HTTP request */
+function requestLogger(req: Request, res: Response, next: NextFunction): void {
+  const start = Date.now();
+  const log = createLogger({ requestId: res.locals.requestId });
+
+  res.on('finish', () => {
+    const durationMs = Date.now() - start;
+    log.info(
+      { method: req.method, path: req.path, statusCode: res.statusCode, durationMs },
+      'request completed'
+    );
+  });
+
+  next();
+}
+
 export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; close: () => void } {
   const app = express();
   app.use(express.json());
   app.use('/api/agents', agentsRouter);
+
+  // ── Global middleware ────────────────────────────────────────────────────────
+  app.use(requestId);
+  app.use(requestLogger);
 
   const dispatch: DispatchFn = opts.dispatch ?? defaultDispatch;
   const releasePayment: PaymentReleaseFn =
@@ -65,6 +85,7 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
     const taskId = `task_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
     const dag = decompose(taskId, prompt);
     const now = new Date().toISOString();
+    const correlationId = res.locals.requestId;
 
     createTask({
       taskId,
@@ -74,14 +95,19 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
       dag,
       createdAt: now,
       updatedAt: now,
+      requestId: correlationId,
     });
+
+    const log = createLogger({ requestId: correlationId, taskId });
 
     // Run the DAG asynchronously — do not await
     setImmediate(() => {
       executeDAG(getTask(taskId)!, dispatch, releasePayment).catch(err => {
-        console.error('[coordinator] DAG execution error:', err);
+        log.error({ err }, 'DAG execution error');
       });
     });
+
+    log.info({ dagNodeCount: dag.length }, 'task created');
 
     return res.status(201).json({ taskId, dagPreview: dag, status: 'queued' });
   });
