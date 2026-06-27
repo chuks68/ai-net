@@ -1,22 +1,27 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import { createServer, Server as HttpServer } from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 
 import { decompose } from '../coordinator/decompose';
 import { executeDAG, type DispatchFn, type PaymentReleaseFn } from '../coordinator/coordinator';
 import { createTask, getTask } from '../coordinator/taskStore';
 import { eventBus } from '../coordinator/eventBus';
-import type { DAGEvent } from '../coordinator/types';
+import { createEventStore, type EventStore } from '../coordinator/eventStore';
+import { attachTaskStream, type TaskStreamOptions } from './routes/stream';
 import { createPaymentReleaseFn, type StellarReleasePaymentFn } from '../payment';
-import { createLogger } from '../utils/logger';
-import { requestId } from './middleware/requestId';
+import { agentsRouter } from './routes/agents';
+import { rateLimitMiddleware } from './middleware/rateLimit';
+import { authMiddleware } from './middleware/auth';
 
 export interface AppOptions {
   /** Called to execute a single DAG node; defaults to HTTP dispatch */
   dispatch?: DispatchFn;
   /** Called after each node completes; defaults to no-op (returns 'mock-hash') */
   releasePayment?: PaymentReleaseFn;
+  /** Event log for stream replay; defaults to an in-memory SQLite store */
+  eventStore?: EventStore;
+  /** Heartbeat / auth timing for the WebSocket stream */
+  stream?: TaskStreamOptions;
 }
 
 /**
@@ -53,6 +58,7 @@ function requestLogger(req: Request, res: Response, next: NextFunction): void {
 export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; close: () => void } {
   const app = express();
   app.use(express.json());
+  app.use('/api/agents', agentsRouter);
 
   // ── Global middleware ────────────────────────────────────────────────────────
   app.use(requestId);
@@ -62,8 +68,11 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
   const releasePayment: PaymentReleaseFn =
     opts.releasePayment ?? createPaymentReleaseFn(tryLoadStellarRelease());
 
+  // ── Agent routes ───────────────────────────────────────────────────────────
+  app.use('/api/agents', createAgentsRouter());
+
   // ── POST /api/tasks ────────────────────────────────────────────────────────
-  app.post('/api/tasks', (req: Request, res: Response) => {
+  app.post('/api/tasks', authMiddleware, rateLimitMiddleware, (req: Request, res: Response) => {
     const { prompt, walletPublicKey } = req.body as {
       prompt?: string;
       walletPublicKey?: string;
@@ -113,66 +122,26 @@ export function createApp(opts: AppOptions = {}): { httpServer: HttpServer; clos
   // ── HTTP server ────────────────────────────────────────────────────────────
   const httpServer = createServer(app);
 
+  // ── Event persistence ──────────────────────────────────────────────────────
+  // Record every Coordinator event (with its EventBus-assigned per-task seq) so
+  // a (re)connecting client can replay history before live streaming begins —
+  // either the full history, or only events past a `?lastEventId` cursor.
+  const eventStore = opts.eventStore ?? createEventStore();
+  const stopRecording = eventBus.subscribeAll(event => eventStore.append(event));
+
   // ── WebSocket: /tasks/:id/stream ───────────────────────────────────────────
-  const wss = new WebSocketServer({ noServer: true });
-
-  httpServer.on('upgrade', (req, socket, head) => {
-    const url = req.url ?? '';
-    const match = url.match(/^\/tasks\/([^/]+)\/stream$/);
-    if (!match) {
-      socket.destroy();
-      return;
-    }
-    wss.handleUpgrade(req, socket, head, ws => {
-      wss.emit('connection', ws, req, match[1]);
-    });
-  });
-
-  wss.on('connection', (ws: WebSocket, _req: unknown, taskId: string) => {
-    const task = getTask(taskId);
-    if (!task) {
-      ws.close(4004, 'Task not found');
-      return;
-    }
-
-    const log = createLogger({ taskId, requestId: task.requestId });
-
-    // Subscribe before replay so no live events are missed in the window between
-    const unsub = eventBus.subscribe(taskId, (event: DAGEvent) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(event));
-      }
-    });
-
-    // Replay past events derived from current DAG + task state
-    for (const node of task.dag) {
-      if (node.status === 'running' || node.status === 'completed' || node.status === 'failed') {
-        ws.send(JSON.stringify({ type: 'node_started',    taskId, nodeId: node.nodeId, timestamp: task.updatedAt }));
-      }
-      if (node.status === 'completed') {
-        ws.send(JSON.stringify({ type: 'payment_released', taskId, nodeId: node.nodeId, timestamp: task.updatedAt }));
-        ws.send(JSON.stringify({ type: 'node_completed',  taskId, nodeId: node.nodeId, timestamp: task.updatedAt }));
-      }
-      if (node.status === 'failed') {
-        ws.send(JSON.stringify({ type: 'node_failed', taskId, nodeId: node.nodeId, timestamp: task.updatedAt }));
-      }
-    }
-
-    // If the task is already terminal, synthesize the final event so clients can exit
-    if (task.status === 'completed') {
-      ws.send(JSON.stringify({ type: 'task_completed', taskId, timestamp: task.updatedAt }));
-    } else if (task.status === 'failed') {
-      ws.send(JSON.stringify({ type: 'task_failed', taskId, timestamp: task.updatedAt }));
-    }
-
-    ws.on('close', unsub);
-    ws.on('error', unsub);
-
-    log.info('WebSocket client connected for task stream');
+  const detachStream = attachTaskStream({
+    httpServer,
+    eventStore,
+    eventBus,
+    getTask,
+    ...opts.stream,
   });
 
   function close(): void {
-    wss.close();
+    detachStream();
+    stopRecording();
+    eventStore.close();
     httpServer.close();
   }
 
