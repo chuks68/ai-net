@@ -21,7 +21,9 @@ beforeAll(() => {
     )
   `);
   // Override getTaskDb to return the in-memory db
-  jest.spyOn(require("../src/db/tasks"), "getTaskDb").mockReturnValue(inMemoryDb);
+  jest
+    .spyOn(require("../src/db/tasks"), "getTaskDb")
+    .mockReturnValue(inMemoryDb);
   jest.useFakeTimers();
 });
 
@@ -40,7 +42,10 @@ describe("POST /api/tasks", () => {
     const res = await request(app.httpServer)
       .post("/api/tasks")
       .set("walletpublickey", WALLET)
-      .send({ prompt: "Generate a market entry report for solar energy", maxBudgetXLM: 1 });
+      .send({
+        prompt: "Generate a market entry report for solar energy",
+        maxBudgetXLM: 1,
+      });
 
     expect(res.status).toBe(201);
     expect(res.body.taskId).toMatch(/^task_/);
@@ -69,7 +74,9 @@ describe("POST /api/tasks", () => {
 
 describe("GET /api/tasks/:id", () => {
   it("returns 404 for unknown ID", async () => {
-    const res = await request(app.httpServer).get("/api/tasks/task_doesnotexist");
+    const res = await request(app.httpServer).get(
+      "/api/tasks/task_doesnotexist",
+    );
     expect(res.status).toBe(404);
   });
 
@@ -90,7 +97,8 @@ describe("GET /api/tasks/:id", () => {
 describe("GET /api/tasks (pagination)", () => {
   it("returns paginated results", async () => {
     // Create 3 tasks for a fresh wallet
-    const wallet = "GCEZWKCA5PAGINATE000000000000000000000000000000000000000000";
+    const wallet =
+      "GCEZWKCA5PAGINATE000000000000000000000000000000000000000000";
     for (let i = 0; i < 3; i++) {
       await request(app.httpServer)
         .post("/api/tasks")
@@ -138,7 +146,9 @@ describe("DELETE /api/tasks/:id", () => {
   });
 
   it("returns 404 for unknown task", async () => {
-    const res = await request(app.httpServer).delete("/api/tasks/task_unknown999");
+    const res = await request(app.httpServer).delete(
+      "/api/tasks/task_unknown999",
+    );
     expect(res.status).toBe(404);
   });
 });
@@ -165,7 +175,9 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
 
   beforeAll(() => {
     // Clean any existing tasks for this wallet
-    inMemoryDb.prepare("DELETE FROM tasks WHERE walletPublicKey = ?").run(wallet);
+    inMemoryDb
+      .prepare("DELETE FROM tasks WHERE walletPublicKey = ?")
+      .run(wallet);
 
     const db = createTaskDb(inMemoryDb);
     const now = Date.now();
@@ -236,7 +248,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   // ── Status filter ──────────────────────────────────────────────────────
 
   it("?status=completed returns only completed tasks", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?status=completed")
       .set("walletpublickey", wallet);
 
@@ -248,7 +260,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   });
 
   it("?status=queued returns only queued tasks", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?status=queued")
       .set("walletpublickey", wallet);
 
@@ -258,7 +270,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   });
 
   it("?status=failed returns only failed tasks", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?status=failed")
       .set("walletpublickey", wallet);
 
@@ -268,7 +280,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   });
 
   it("?status=running returns only running tasks", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?status=running")
       .set("walletpublickey", wallet);
 
@@ -278,7 +290,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   });
 
   it("?status=cancelled returns only cancelled tasks", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?status=cancelled")
       .set("walletpublickey", wallet);
 
@@ -290,7 +302,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   // ── Sort order ─────────────────────────────────────────────────────────
 
   it("?sort=createdAt:asc returns oldest first", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?sort=createdAt:asc")
       .set("walletpublickey", wallet);
 
@@ -300,13 +312,13 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
     // Oldest first means created timestamps should be non-decreasing
     for (let i = 1; i < tasks.length; i++) {
       expect(new Date(tasks[i].createdAt).getTime()).toBeGreaterThanOrEqual(
-        new Date(tasks[i - 1].createdAt).getTime()
+        new Date(tasks[i - 1].createdAt).getTime(),
       );
     }
   });
 
   it("?sort=createdAt:desc returns newest first (default)", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?sort=createdAt:desc")
       .set("walletpublickey", wallet);
 
@@ -316,7 +328,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
     // Newest first means created timestamps should be non-increasing
     for (let i = 1; i < tasks.length; i++) {
       expect(new Date(tasks[i].createdAt).getTime()).toBeLessThanOrEqual(
-        new Date(tasks[i - 1].createdAt).getTime()
+        new Date(tasks[i - 1].createdAt).getTime(),
       );
     }
   });
@@ -324,7 +336,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   // ── Search (prompt substring) ──────────────────────────────────────────
 
   it("?q=solar returns tasks whose prompt contains 'solar' (case-insensitive)", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?q=solar")
       .set("walletpublickey", wallet);
 
@@ -336,7 +348,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   });
 
   it("?q=SOLAR with uppercase is also case-insensitive", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?q=SOLAR")
       .set("walletpublickey", wallet);
 
@@ -345,7 +357,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   });
 
   it("?q=wind returns only wind-related tasks", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?q=wind")
       .set("walletpublickey", wallet);
 
@@ -355,7 +367,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   });
 
   it("?q=xyzzy returns zero results for non-matching search", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?q=xyzzy")
       .set("walletpublickey", wallet);
 
@@ -368,7 +380,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
 
   it("status + q + sort combine correctly", async () => {
     // completed tasks containing "solar", sorted oldest-first
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?status=completed&q=solar&sort=createdAt:asc")
       .set("walletpublickey", wallet);
 
@@ -382,13 +394,13 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
     // Oldest first
     for (let i = 1; i < tasks.length; i++) {
       expect(new Date(tasks[i].createdAt).getTime()).toBeGreaterThanOrEqual(
-        new Date(tasks[i - 1].createdAt).getTime()
+        new Date(tasks[i - 1].createdAt).getTime(),
       );
     }
   });
 
   it("status + page composition: completed on page 1 with pageSize 2", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?status=completed&page=1&pageSize=2")
       .set("walletpublickey", wallet);
 
@@ -401,7 +413,7 @@ describe("GET /api/tasks (filtering, sorting, search)", () => {
   });
 
   it("q + page composition: solar search on page 2 with pageSize 2", async () => {
-    const res = await request(app)
+    const res = await request(app.httpServer)
       .get("/api/tasks?q=solar&page=2&pageSize=2")
       .set("walletpublickey", wallet);
 
