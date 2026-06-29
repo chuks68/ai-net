@@ -1,59 +1,60 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import axios from 'axios';
-import { discoverAgents } from '../registry/registry';
+import * as fs from "fs";
+import * as path from "path";
+import axios from "axios";
+import { discoverAgents } from "../registry/registry";
 
 export interface DAGNode {
   id: string;
   taskType: string;
   dependsOn: string[];
   assignedAgent?: string;
-  status: 'pending' | 'running' | 'done' | 'failed';
+  status: "pending" | "running" | "done" | "failed";
   result?: unknown;
 }
 
 export class CyclicDAGError extends Error {
   constructor() {
-    super('Cyclic dependency detected in task DAG');
-    this.name = 'CyclicDAGError';
+    super("Cyclic dependency detected in task DAG");
+    this.name = "CyclicDAGError";
   }
 }
 
 // ── Venice AI ────────────────────────────────────────────────────────────────
 
-const VENICE_API = 'https://api.venice.ai/api/v1/chat/completions';
+const VENICE_API = "https://api.venice.ai/api/v1/chat/completions";
 
 export async function decomposeTask(userPrompt: string): Promise<DAGNode[]> {
   const response = await axios.post(
     VENICE_API,
     {
-      model: 'llama-3.3-70b',
+      model: "llama-3.3-70b",
       messages: [
         {
-          role: 'system',
+          role: "system",
           content:
-            'You decompose a user task into sub-tasks. ' +
-            'Return ONLY a JSON array of objects with keys: id (string), taskType (one of: research, risk, coding, design, report), dependsOn (array of ids). ' +
-            'Ensure at least 3 nodes. No markdown, no explanation.',
+            "You decompose a user task into sub-tasks. " +
+            "Return ONLY a JSON array of objects with keys: id (string), taskType (one of: research, risk, coding, design, report), dependsOn (array of ids). " +
+            "Ensure at least 3 nodes. No markdown, no explanation.",
         },
-        { role: 'user', content: userPrompt },
+        { role: "user", content: userPrompt },
       ],
     },
     { headers: { Authorization: `Bearer ${process.env.VENICE_API_KEY}` } },
   );
 
-  const raw: Array<{ id: string; taskType: string; dependsOn: string[] }> = JSON.parse(
-    response.data.choices[0].message.content,
-  );
+  const raw: Array<{ id: string; taskType: string; dependsOn: string[] }> =
+    JSON.parse(response.data.choices[0].message.content);
 
-  return raw.map((n) => ({ ...n, status: 'pending' }));
+  return raw.map((n) => ({ ...n, status: "pending" }));
 }
 
 // ── Agent assignment ──────────────────────────────────────────────────────────
 
 export function assignAgents(dag: DAGNode[]): void {
   for (const node of dag) {
-    const agents = discoverAgents(node.taskType).sort((a, b) => a.priceXLM - b.priceXLM);
+    const agents = discoverAgents(node.taskType).sort(
+      (a, b) => a.priceXLM - b.priceXLM,
+    );
     if (agents.length) node.assignedAgent = agents[0].id;
   }
 }
@@ -88,7 +89,10 @@ const MAX_RETRIES = 3;
 export async function executeDAG(
   dag: DAGNode[],
   taskId: string,
-  runNode: (node: DAGNode, context: Record<string, unknown>) => Promise<unknown> = defaultRunNode,
+  runNode: (
+    node: DAGNode,
+    context: Record<string, unknown>,
+  ) => Promise<unknown> = defaultRunNode,
 ): Promise<Record<string, unknown>> {
   const sorted = topologicalSort(dag);
   const nodeMap = new Map(dag.map((n) => [n.id, n]));
@@ -98,14 +102,14 @@ export async function executeDAG(
     const context: Record<string, unknown> = {};
     for (const dep of node.dependsOn) context[dep] = results[dep];
 
-    node.status = 'running';
+    node.status = "running";
     await handleAgentFailure(node, context, runNode);
 
     const status: string = node.status;
-    if (status === 'failed') {
+    if (status === "failed") {
       for (const n of dag) {
         if (n.dependsOn.includes(node.id)) {
-          nodeMap.get(n.id)!.status = 'failed';
+          nodeMap.get(n.id)!.status = "failed";
         }
       }
     } else {
@@ -122,12 +126,17 @@ export async function executeDAG(
 export async function handleAgentFailure(
   node: DAGNode,
   context: Record<string, unknown>,
-  runNode: (node: DAGNode, context: Record<string, unknown>) => Promise<unknown>,
+  runNode: (
+    node: DAGNode,
+    context: Record<string, unknown>,
+  ) => Promise<unknown>,
 ): Promise<void> {
-  const agents = discoverAgents(node.taskType).sort((a, b) => a.priceXLM - b.priceXLM);
+  const agents = discoverAgents(node.taskType).sort(
+    (a, b) => a.priceXLM - b.priceXLM,
+  );
 
   if (agents.length === 0) {
-    node.status = 'failed';
+    node.status = "failed";
     return;
   }
 
@@ -138,14 +147,14 @@ export async function handleAgentFailure(
     try {
       node.assignedAgent = agent.id;
       node.result = await runNode(node, context);
-      node.status = 'done';
+      node.status = "done";
       return;
     } catch {
       attempts++;
     }
   }
 
-  node.status = 'failed';
+  node.status = "failed";
 }
 
 // ── Persistence ───────────────────────────────────────────────────────────────
@@ -153,13 +162,20 @@ export async function handleAgentFailure(
 // Trace files accumulate in logs/tasks/. Clean up stale files with a cron or CI step:
 //   find logs/tasks -mtime +7 -delete
 function persistTrace(taskId: string, dag: DAGNode[]): void {
-  const dir = path.join('logs', 'tasks');
+  const dir = path.join("logs", "tasks");
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, `${taskId}.json`), JSON.stringify(dag, null, 2));
+  fs.writeFileSync(
+    path.join(dir, `${taskId}.json`),
+    JSON.stringify(dag, null, 2),
+  );
 }
 
 // ── Default node runner ───────────────────────────────────────────────────────
 
-async function defaultRunNode(node: DAGNode, _context: Record<string, unknown>): Promise<unknown> {
+async function defaultRunNode(
+  node: DAGNode,
+  context: Record<string, unknown>,
+): Promise<unknown> {
+  void context;
   return { nodeId: node.id, agentId: node.assignedAgent };
 }

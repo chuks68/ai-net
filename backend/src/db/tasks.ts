@@ -45,6 +45,12 @@ export interface TaskEvent {
   timestamp: string;
 }
 
+export interface TaskListOptions {
+  status?: string;
+  q?: string;
+  sort?: "createdAt:asc" | "createdAt:desc";
+}
+
 export interface TaskDb {
   insert(task: Task): void;
   findById(id: string): Task | undefined;
@@ -52,7 +58,7 @@ export interface TaskDb {
     walletPublicKey: string,
     page: number,
     pageSize: number,
-    options?: TaskListOptions
+    options?: TaskListOptions,
   ): { tasks: Task[]; total: number };
   updateStatus(id: string, status: TaskStatus): void;
   updateDagJson(id: string, dagJson: string): void;
@@ -63,21 +69,24 @@ export interface TaskDb {
 export function createTaskDb(db: Database.Database): TaskDb {
   return {
     insert(task: Task): void {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO tasks (id, prompt, walletPublicKey, status, dagJson, createdAt, updatedAt)
         VALUES (@id, @prompt, @walletPublicKey, @status, @dagJson, @createdAt, @updatedAt)
-      `).run(task);
+      `,
+      ).run(task);
     },
 
     findById(id: string): Task | undefined {
-      return db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Task | undefined;
+      return db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as
+        Task | undefined;
     },
 
     list(
       walletPublicKey: string,
       page: number,
       pageSize: number,
-      options: TaskListOptions = {}
+      options: TaskListOptions = {},
     ) {
       const offset = (page - 1) * pageSize;
       const conditions: string[] = ["walletPublicKey = ?"];
@@ -100,7 +109,7 @@ export function createTaskDb(db: Database.Database): TaskDb {
 
       const tasks = db
         .prepare(
-          `SELECT * FROM tasks WHERE ${whereClause} ORDER BY createdAt ${sortOrder} LIMIT ? OFFSET ?`
+          `SELECT * FROM tasks WHERE ${whereClause} ORDER BY createdAt ${sortOrder} LIMIT ? OFFSET ?`,
         )
         .all(...params, pageSize, offset) as Task[];
 
@@ -112,35 +121,46 @@ export function createTaskDb(db: Database.Database): TaskDb {
     },
 
     updateStatus(id: string, status: TaskStatus): void {
-      db.prepare(
-        "UPDATE tasks SET status = ?, updatedAt = ? WHERE id = ?"
-      ).run(status, new Date().toISOString(), id);
+      db.prepare("UPDATE tasks SET status = ?, updatedAt = ? WHERE id = ?").run(
+        status,
+        new Date().toISOString(),
+        id,
+      );
     },
 
     updateDagJson(id: string, dagJson: string): void {
       db.prepare(
-        "UPDATE tasks SET dagJson = ?, updatedAt = ? WHERE id = ?"
+        "UPDATE tasks SET dagJson = ?, updatedAt = ? WHERE id = ?",
       ).run(dagJson, new Date().toISOString(), id);
     },
 
     insertEvent(event: TaskEvent): void {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO task_events (taskId, type, nodeId, payload, timestamp)
         VALUES (@taskId, @type, @nodeId, @payload, @timestamp)
-      `).run({
+      `,
+      ).run({
         taskId: event.taskId,
         type: event.type,
         nodeId: event.nodeId ?? null,
-        payload: event.payload !== undefined ? JSON.stringify(event.payload) : null,
+        payload:
+          event.payload !== undefined ? JSON.stringify(event.payload) : null,
         timestamp: event.timestamp,
       });
     },
 
     getEventHistory(taskId: string): TaskEvent[] {
-      const rows = db.prepare(
-        "SELECT * FROM task_events WHERE taskId = ? ORDER BY id ASC"
-      ).all(taskId) as Array<{ taskId: string; type: string; nodeId: string | null; payload: string | null; timestamp: string }>;
-      return rows.map(r => ({
+      const rows = db
+        .prepare("SELECT * FROM task_events WHERE taskId = ? ORDER BY id ASC")
+        .all(taskId) as Array<{
+        taskId: string;
+        type: string;
+        nodeId: string | null;
+        payload: string | null;
+        timestamp: string;
+      }>;
+      return rows.map((r) => ({
         taskId: r.taskId,
         type: r.type,
         nodeId: r.nodeId ?? undefined,
