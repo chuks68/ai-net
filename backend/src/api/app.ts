@@ -17,9 +17,12 @@ import {
   type StellarReleasePaymentFn,
 } from "../payment";
 import { agentsRouter } from "./routes/agents";
+import { healthRouter } from "./routes/health";
 import { rateLimitMiddleware } from "./middleware/rateLimit";
 import { authMiddleware } from "./middleware/auth";
 import { requestId } from "./middleware/requestId";
+import { requestLogger } from "./middleware/requestLogger";
+import { errorHandler } from "./middleware/errorHandler";
 import { createLogger } from "../utils/logger";
 import { createTaskDb, getTaskDb } from "../db/tasks";
 
@@ -50,27 +53,6 @@ function tryLoadStellarRelease(): StellarReleasePaymentFn | undefined {
   }
 }
 
-/** Log metadata about a completed HTTP request */
-function requestLogger(req: Request, res: Response, next: NextFunction): void {
-  const start = Date.now();
-  const log = createLogger({ requestId: res.locals.requestId });
-
-  res.on("finish", () => {
-    const durationMs = Date.now() - start;
-    log.info(
-      {
-        method: req.method,
-        path: req.path,
-        statusCode: res.statusCode,
-        durationMs,
-      },
-      "request completed",
-    );
-  });
-
-  next();
-}
-
 export function createApp(opts: AppOptions = {}): {
   httpServer: HttpServer;
   close: () => void;
@@ -84,6 +66,9 @@ export function createApp(opts: AppOptions = {}): {
   const dispatch: DispatchFn = opts.dispatch ?? defaultDispatch;
   const releasePayment: PaymentReleaseFn =
     opts.releasePayment ?? createPaymentReleaseFn(tryLoadStellarRelease());
+
+  // ── Health routes ───────────────────────────────────────────────────────────
+  app.use("/health", healthRouter);
 
   // ── Agent routes ───────────────────────────────────────────────────────────
   app.use("/api/agents", agentsRouter);
@@ -207,6 +192,9 @@ export function createApp(opts: AppOptions = {}): {
     getTask,
     ...opts.stream,
   });
+
+  // ── Error handler (must be last) ───────────────────────────────────────────
+  app.use(errorHandler);
 
   function close(): void {
     detachStream();
