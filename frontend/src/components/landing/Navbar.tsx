@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Search, ExternalLink, Copy, Wallet, Menu, X,
+  Search, ExternalLink, Copy, Wallet, Menu, X, Command,
   LayoutDashboard, ClipboardList, Bot, Hammer, UserPlus, CreditCard, Settings,
 } from 'lucide-react'
 import { useWallet } from '../../context/WalletContext'
@@ -22,6 +22,28 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchFocused, setSearchFocused] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const mobileSearchRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (mobileSearchOpen && mobileSearchRef.current) {
+      mobileSearchRef.current.focus()
+    }
+  }, [mobileSearchOpen])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setMobileSearchOpen(true)
+      }
+      if (e.key === 'Escape') {
+        setMobileSearchOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const truncateKey = (key: string) => {
     if (key.length <= 8) return key
@@ -72,35 +94,26 @@ const Navbar: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Center: Global Search */}
+        {/* Center: Global Search (Desktop) */}
         <div className="relative flex-1 max-w-[360px] mx-auto sm:mx-0 sm:flex-none sm:w-[280px] hidden sm:block">
-          <motion.div
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary/50"
-            animate={{ scale: searchFocused ? 1.1 : 1, color: searchFocused ? '#38BDF8' : undefined }}
-            transition={{ duration: 0.2 }}
-          >
-            <Search size={14} />
-          </motion.div>
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+            <Search size={14} className={`transition-colors duration-200 ${searchFocused ? 'text-accent-cyan' : 'text-text-secondary/40'}`} />
+          </div>
           <input
             type="text"
             placeholder="Search agents, tasks..."
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            className="w-full h-9 rounded-full bg-background-surface/50 pl-10 pr-3 text-[13px] text-text-primary placeholder:text-text-secondary/30 outline-none border border-border-subtle/60 focus:border-accent-cyan/50 focus:bg-background-surface/80 focus:shadow-[0_0_20px_rgba(56,189,248,0.06)] transition-all"
+            className="w-full h-[34px] rounded-lg bg-background-surface/50 pl-9 pr-16 text-[13px] text-text-primary placeholder:text-text-secondary/30 outline-none border border-border-subtle/60 focus:border-accent-cyan/40 focus:bg-background-surface/80 focus:shadow-[0_0_12px_rgba(56,189,248,0.07)] transition-all"
           />
-          {searchFocused && (
-            <motion.div
-              className="absolute inset-0 rounded-full pointer-events-none"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              style={{ boxShadow: '0 0 0 1px rgba(56,189,248,0.15)' }}
-            />
-          )}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-background-surface-alt/60 border border-border-subtle/40 pointer-events-none">
+            <Command size={10} className="text-text-secondary/40" />
+            <span className="text-[10px] font-medium text-text-secondary/40">K</span>
+          </div>
         </div>
 
         {/* Right: Network + Wallet */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5">
           <motion.div
             className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-background-surface/50 border border-border-subtle/60"
             whileHover={{ borderColor: 'rgba(52,211,153,0.3)' }}
@@ -115,11 +128,21 @@ const Navbar: React.FC = () => {
             </span>
           </motion.div>
 
+          {/* Mobile Search Toggle */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            className="sm:hidden flex items-center justify-center w-9 h-9 rounded-lg text-text-secondary/60 hover:text-text-primary hover:bg-background-surface transition-colors"
+            onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+            aria-label="Search"
+          >
+            <Search size={16} />
+          </motion.button>
+
           {connected && publicKey ? (
-            <div className="flex items-center gap-1 bg-background-surface/50 border border-border-subtle/60 rounded-full pl-3 pr-2 py-1">
-              <span className="relative flex w-2 h-2">
+            <div className="flex items-center gap-1 bg-background-surface/50 border border-border-subtle/60 rounded-full pl-2.5 pr-1.5 py-1">
+              <span className="relative flex w-1.5 h-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-green opacity-40" />
-                <span className="relative inline-flex rounded-full w-2 h-2 bg-accent-green shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-accent-green shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
               </span>
               <span className="text-[12px] font-medium text-text-primary font-mono tracking-wide mx-1.5">
                 {truncateKey(publicKey)}
@@ -128,26 +151,26 @@ const Navbar: React.FC = () => {
                 whileTap={{ scale: 0.9 }}
                 onClick={copyToClipboard}
                 aria-label="Copy public key"
-                className="flex items-center justify-center w-7 h-7 rounded-md text-text-secondary/50 hover:text-text-primary hover:bg-background-surface transition-colors"
+                className="flex items-center justify-center w-6 h-6 rounded-md text-text-secondary/50 hover:text-text-primary hover:bg-background-surface transition-colors"
               >
-                <Copy size={12} />
+                <Copy size={11} />
               </motion.button>
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={disconnect}
                 aria-label="Disconnect wallet"
-                className="flex items-center justify-center w-7 h-7 rounded-md text-text-secondary/50 hover:text-red-400 hover:bg-background-surface transition-colors"
+                className="flex items-center justify-center w-6 h-6 rounded-md text-text-secondary/50 hover:text-red-400 hover:bg-background-surface transition-colors"
               >
-                <ExternalLink size={12} />
+                <ExternalLink size={11} />
               </motion.button>
             </div>
           ) : (
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="group flex items-center gap-2 bg-background-surface/50 border border-border-subtle/60 rounded-full px-3.5 py-1.5 cursor-pointer hover:border-accent-cyan/40 hover:bg-background-surface/80 hover:shadow-[0_0_20px_rgba(56,189,248,0.06)] transition-all"
+              className="group flex items-center gap-2 bg-background-surface/50 border border-border-subtle/60 rounded-full px-3 py-1.5 cursor-pointer hover:border-accent-cyan/40 hover:bg-background-surface/80 hover:shadow-[0_0_20px_rgba(56,189,248,0.06)] transition-all"
             >
-              <Wallet size={14} className="text-accent-cyan group-hover:scale-110 transition-transform" />
+              <Wallet size={13} className="text-accent-cyan group-hover:scale-110 transition-transform" />
               <span className="text-[12px] font-medium text-text-secondary group-hover:text-text-primary transition-colors hidden sm:inline">
                 Connect Wallet
               </span>
@@ -155,6 +178,30 @@ const Navbar: React.FC = () => {
           )}
         </div>
       </header>
+
+      {/* Mobile Search Bar */}
+      <AnimatePresence>
+        {mobileSearchOpen && (
+          <motion.div
+            className="sm:hidden relative z-30 px-4 pb-3 pt-2 bg-background-primary/95 backdrop-blur-2xl border-b border-border-subtle"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary/40" />
+              <input
+                ref={mobileSearchRef}
+                type="text"
+                placeholder="Search agents, tasks..."
+                onKeyDown={(e) => e.key === 'Escape' && setMobileSearchOpen(false)}
+                className="w-full h-10 rounded-lg bg-background-surface pl-10 pr-4 text-[14px] text-text-primary placeholder:text-text-secondary/30 outline-none border border-border-subtle/60 focus:border-accent-cyan/40 transition-all"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Mobile Drawer */}
       <AnimatePresence>
