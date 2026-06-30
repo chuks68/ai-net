@@ -5,6 +5,7 @@ import Sidebar from '../components/landing/Sidebar'
 import Hero from '../components/landing/Hero'
 import StatsBar from '../components/landing/StatsBar'
 import SpecialistAgentsSection from '../components/landing/SpecialistAgentsSection'
+import Footer from '../components/landing/Footer'
 
 const LandingPage: React.FC = () => {
   return (
@@ -30,6 +31,7 @@ const LandingPage: React.FC = () => {
           <Hero />
           <StatsBar />
           <SpecialistAgentsSection />
+          <Footer />
         </motion.main>
       </div>
     </div>
