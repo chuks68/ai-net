@@ -1,16 +1,19 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { LayoutDashboard, ClipboardList, Bot, Hammer, UserPlus, CreditCard, Settings } from 'lucide-react'
 
+const navItems = [
+  { label: 'Dashboard', icon: <LayoutDashboard size={16} />, route: '/dashboard' },
+  { label: 'Tasks', icon: <ClipboardList size={16} />, route: '/tasks/new' },
+  { label: 'Agents', icon: <Bot size={16} />, route: '/agents' },
+  { label: 'Builder', icon: <Hammer size={16} />, route: '#' },
+  { label: 'Register', icon: <UserPlus size={16} />, route: '#' },
+  { label: 'Payments', icon: <CreditCard size={16} />, route: '/wallet' },
+  { label: 'Settings', icon: <Settings size={16} />, route: '#' },
+]
+
 const Sidebar: React.FC = () => {
-  const navItems = [
-    { label: 'Dashboard', icon: <LayoutDashboard size={16} />, active: true },
-    { label: 'Tasks', icon: <ClipboardList size={16} />, active: false },
-    { label: 'Agents', icon: <Bot size={16} />, active: false },
-    { label: 'Builder', icon: <Hammer size={16} />, active: false },
-    { label: 'Register', icon: <UserPlus size={16} />, active: false },
-    { label: 'Payments', icon: <CreditCard size={16} />, active: false },
-    { label: 'Settings', icon: <Settings size={16} />, active: false },
-  ]
+  const navigate = useNavigate()
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-[200px] bg-background-primary border-r border-border-subtle hidden lg:flex flex-col z-50">
@@ -34,12 +37,13 @@ const Sidebar: React.FC = () => {
         {navItems.map((item, idx) => (
           <button
             key={idx}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all group w-full text-left bg-transparent hover:bg-background-surface-alt/50`}
+            onClick={() => item.route !== '#' && navigate(item.route)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all group w-full text-left bg-transparent hover:bg-background-surface-alt/50 ${item.route === '#' ? 'cursor-not-allowed opacity-50' : ''}`}
           >
-            <span className={`${item.active ? 'text-accent-cyan' : 'text-text-secondary group-hover:text-text-primary'} transition-colors`}>
+            <span className="text-text-secondary group-hover:text-text-primary transition-colors">
               {item.icon}
             </span>
-            <span className={`${item.active ? 'text-text-primary font-semibold' : 'text-text-secondary font-medium'} tracking-wide transition-colors group-hover:text-text-primary`}>
+            <span className="text-text-secondary font-medium tracking-wide transition-colors group-hover:text-text-primary">
               {item.label}
             </span>
           </button>

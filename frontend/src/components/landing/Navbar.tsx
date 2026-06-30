@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, ExternalLink, Copy, Wallet, Menu, X,
@@ -7,17 +8,18 @@ import {
 import { useWallet } from '../../context/WalletContext'
 
 const navItems = [
-  { label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
-  { label: 'Tasks', icon: <ClipboardList size={16} /> },
-  { label: 'Agents', icon: <Bot size={16} /> },
-  { label: 'Builder', icon: <Hammer size={16} /> },
-  { label: 'Register', icon: <UserPlus size={16} /> },
-  { label: 'Payments', icon: <CreditCard size={16} /> },
-  { label: 'Settings', icon: <Settings size={16} /> },
+  { label: 'Dashboard', icon: <LayoutDashboard size={16} />, route: '/dashboard' },
+  { label: 'Tasks', icon: <ClipboardList size={16} />, route: '/tasks/new' },
+  { label: 'Agents', icon: <Bot size={16} />, route: '/agents' },
+  { label: 'Builder', icon: <Hammer size={16} />, route: '#' },
+  { label: 'Register', icon: <UserPlus size={16} />, route: '#' },
+  { label: 'Payments', icon: <CreditCard size={16} />, route: '/wallet' },
+  { label: 'Settings', icon: <Settings size={16} />, route: '#' },
 ]
 
 const Navbar: React.FC = () => {
   const { publicKey, connected, disconnect } = useWallet()
+  const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const truncateKey = (key: string) => {
@@ -27,6 +29,12 @@ const Navbar: React.FC = () => {
 
   const copyToClipboard = () => {
     if (publicKey) navigator.clipboard.writeText(publicKey)
+  }
+
+  const handleNavClick = (route: string) => {
+    if (route === '#') return
+    setMobileMenuOpen(false)
+    navigate(route)
   }
 
   return (
@@ -42,7 +50,7 @@ const Navbar: React.FC = () => {
             {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-[28px] h-[28px] rounded-[7px] bg-gradient-primary flex items-center justify-center font-bold text-white text-sm shadow-[0_0_12px_rgba(56,189,248,0.3)]">
               a
             </div>
@@ -140,8 +148,8 @@ const Navbar: React.FC = () => {
               {navItems.map((item, idx) => (
                 <button
                   key={idx}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] text-text-secondary hover:text-text-primary hover:bg-background-surface transition-all w-full text-left font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all w-full text-left font-medium ${item.route === '#' ? 'text-text-secondary/40 cursor-not-allowed' : 'text-text-secondary hover:text-text-primary hover:bg-background-surface'}`}
+                  onClick={() => handleNavClick(item.route)}
                 >
                   <span className="text-text-secondary/60">{item.icon}</span>
                   {item.label}

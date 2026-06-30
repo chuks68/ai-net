@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Sparkles, ArrowRight } from 'lucide-react'
 
@@ -16,6 +17,8 @@ const itemVariants = {
 } as const
 
 const Hero: React.FC = () => {
+  const navigate = useNavigate()
+
   return (
     <motion.section
       className="flex flex-col items-center text-center pt-24 pb-20 px-4 max-w-4xl mx-auto"
@@ -67,12 +70,18 @@ const Hero: React.FC = () => {
         className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto"
         variants={itemVariants}
       >
-        <button className="group w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-gradient-primary text-white font-semibold shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_35px_rgba(139,92,246,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all">
+        <button
+          onClick={() => navigate('/tasks/new')}
+          className="group w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-gradient-primary text-white font-semibold shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_35px_rgba(139,92,246,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+        >
           <Sparkles size={18} className="group-hover:rotate-12 transition-transform" />
           <span>Start a Task</span>
         </button>
 
-        <button className="group w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-background-surface-alt border border-border-subtle text-text-secondary font-medium hover:text-text-primary hover:bg-background-surface hover:border-border-subtle/50 active:scale-[0.98] transition-all">
+        <button
+          onClick={() => navigate('/agents')}
+          className="group w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-background-surface-alt border border-border-subtle text-text-secondary font-medium hover:text-text-primary hover:bg-background-surface hover:border-border-subtle/50 active:scale-[0.98] transition-all"
+        >
           <span>Browse Agents</span>
           <ArrowRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
         </button>
