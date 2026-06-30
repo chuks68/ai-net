@@ -1,16 +1,10 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, ExternalLink, Copy, Wallet, Menu, X } from 'lucide-react'
-import { useWallet } from '../../context/WalletContext'
 import {
-  LayoutDashboard,
-  ClipboardList,
-  Bot,
-  Hammer,
-  UserPlus,
-  CreditCard,
-  Settings,
+  Search, ExternalLink, Copy, Wallet, Menu, X,
+  LayoutDashboard, ClipboardList, Bot, Hammer, UserPlus, CreditCard, Settings,
 } from 'lucide-react'
+import { useWallet } from '../../context/WalletContext'
 
 const navItems = [
   { label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
@@ -77,14 +71,6 @@ const Navbar: React.FC = () => {
             </span>
           </div>
 
-          {/* Mobile Search Toggle */}
-          <button
-            className="sm:hidden flex items-center justify-center w-9 h-9 rounded-lg text-text-secondary hover:text-text-primary hover:bg-background-surface transition-colors"
-            aria-label="Search"
-          >
-            <Search size={18} />
-          </button>
-
           {connected && publicKey ? (
             <div className="flex items-center gap-1.5 bg-background-surface/60 border border-border-subtle rounded-full px-3.5 py-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-accent-green shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
@@ -109,7 +95,7 @@ const Navbar: React.FC = () => {
           ) : (
             <button className="group flex items-center gap-2 bg-background-surface/60 border border-border-subtle rounded-full px-3.5 py-1.5 cursor-pointer hover:border-accent-cyan/40 hover:bg-background-surface transition-all">
               <Wallet size={14} className="text-accent-cyan" />
-              <span className="text-[12px] font-medium text-text-secondary group-hover:text-text-primary transition-colors hidden xs:inline">
+              <span className="text-[12px] font-medium text-text-secondary group-hover:text-text-primary transition-colors hidden sm:inline">
                 Connect Wallet
               </span>
             </button>
