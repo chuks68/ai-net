@@ -16,20 +16,23 @@ const Navbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between px-8 h-[73px] bg-background-primary border-b border-border-subtle">
-      
-      {/* Global Search */}
-    <div className="relative w-[280px]">
-  <Search
-    size={14}
-    className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
-  />
+      {/* Logo */}
+      <div className="flex items-center gap-2.5">
+        <div className="w-[28px] h-[28px] rounded-[7px] bg-gradient-primary flex items-center justify-center font-bold text-white text-sm shadow-[0_0_12px_rgba(56,189,248,0.3)]">
+          a
+        </div>
+        <span className="font-bold text-[15px] text-text-primary tracking-wide hidden sm:inline">ai-net</span>
+      </div>
 
-  <input
-    type="text"
-    placeholder="  "
-    className="w-full h-9 rounded-full bg-background-surface pl-11 pr-3 text-[13px] text-text-primary placeholder:text-text-secondary outline-none border border-border-subtle focus:border-accent-cyan/50 transition-colors"
-  />
-</div>
+      {/* Global Search */}
+      <div className="relative w-[200px] sm:w-[280px]">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+        <input
+          type="text"
+          placeholder="Search agents, tasks..."
+          className="w-full h-9 rounded-full bg-background-surface pl-10 pr-3 text-[13px] text-text-primary placeholder:text-text-secondary/50 outline-none border border-border-subtle focus:border-accent-cyan/50 transition-colors"
+        />
+      </div>
 
       {/* Right Actions */}
       <div className="flex items-center gap-4">
