@@ -96,19 +96,21 @@ const Navbar: React.FC = () => {
 
         {/* Center: Global Search (Desktop) */}
         <div className="relative flex-1 max-w-[360px] mx-auto sm:mx-0 sm:flex-none sm:w-[280px] hidden sm:block">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-            <Search size={14} className={`transition-colors duration-200 ${searchFocused ? 'text-accent-cyan' : 'text-text-secondary/40'}`} />
+          <div className="absolute inset-y-0 left-0 flex items-center pl-[13px] pointer-events-none">
+            <Search size={15} className={`transition-colors duration-200 ${searchFocused ? 'text-accent-cyan' : 'text-text-secondary/40'}`} />
           </div>
           <input
             type="text"
             placeholder="Search agents, tasks..."
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            className="w-full h-[34px] rounded-lg bg-background-surface/50 pl-9 pr-16 text-[13px] text-text-primary placeholder:text-text-secondary/30 outline-none border border-border-subtle/60 focus:border-accent-cyan/40 focus:bg-background-surface/80 focus:shadow-[0_0_12px_rgba(56,189,248,0.07)] transition-all"
+            className="w-full h-[34px] rounded-lg bg-background-surface/50 pl-[38px] pr-[68px] text-[13px] text-text-primary placeholder:text-text-secondary/30 outline-none border border-border-subtle/60 focus:border-accent-cyan/40 focus:bg-background-surface/80 focus:shadow-[0_0_12px_rgba(56,189,248,0.07)] transition-all"
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-background-surface-alt/60 border border-border-subtle/40 pointer-events-none">
-            <Command size={10} className="text-text-secondary/40" />
-            <span className="text-[10px] font-medium text-text-secondary/40">K</span>
+          <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-background-surface-alt/60 border border-border-subtle/40">
+              <Command size={10} className="text-text-secondary/40" />
+              <span className="text-[10px] font-medium text-text-secondary/40">K</span>
+            </div>
           </div>
         </div>
 
