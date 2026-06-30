@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import Navbar from '../components/landing/Navbar'
 import Sidebar from '../components/landing/Sidebar'
@@ -8,6 +8,8 @@ import SpecialistAgentsSection from '../components/landing/SpecialistAgentsSecti
 import Footer from '../components/landing/Footer'
 
 const LandingPage: React.FC = () => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
   return (
     <div className="min-h-screen bg-background-primary text-text-primary font-sans flex relative overflow-x-hidden">
       {/* Background Orbs */}
@@ -17,9 +19,16 @@ const LandingPage: React.FC = () => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-accent-cyan/3 blur-[150px]" />
       </div>
 
-      <Sidebar />
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((prev) => !prev)}
+      />
 
-      <div className="flex-1 flex flex-col lg:ml-[200px] relative z-10">
+      <motion.div
+        className="flex-1 flex flex-col relative z-10"
+        animate={{ marginLeft: sidebarCollapsed ? 0 : 200 }}
+        transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+      >
         <Navbar />
 
         <motion.main
@@ -33,7 +42,7 @@ const LandingPage: React.FC = () => {
           <SpecialistAgentsSection />
           <Footer />
         </motion.main>
-      </div>
+      </motion.div>
     </div>
   )
 }
