@@ -22,6 +22,8 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const desktopInputRef = useRef<HTMLInputElement>(null)
   const mobileSearchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -96,21 +98,36 @@ const Navbar: React.FC = () => {
 
         {/* Center: Global Search (Desktop) */}
         <div className="flex-1 max-w-[320px] mx-auto sm:mx-0 sm:flex-none sm:w-[260px] hidden sm:block">
-          <button
-            onClick={() => setMobileSearchOpen(true)}
-            className="flex items-center w-full h-[32px] rounded-lg border border-border-subtle/60 bg-background-surface/40 hover:bg-background-surface/70 hover:border-border-subtle hover:shadow-[0_0_0_1px_rgba(255,255,255,0.03)] transition-all group cursor-pointer"
-          >
-            <span className="flex-1 pl-2.5 text-left text-[12.5px] text-text-secondary/25 group-hover:text-text-secondary/45 transition-colors truncate tracking-wide">
-              Search agents, tasks...
-            </span>
+          <div className="flex items-center w-full h-[32px] rounded-lg border border-border-subtle/60 bg-background-surface/40 hover:bg-background-surface/70 transition-all group focus-within:border-accent-cyan/30 focus-within:bg-background-surface/80 focus-within:shadow-[0_0_10px_rgba(56,189,248,0.05)]">
+            <input
+              ref={desktopInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchQuery.trim()) {
+                  setMobileSearchOpen(true)
+                }
+              }}
+              placeholder="Search agents, tasks..."
+              className="flex-1 bg-transparent pl-2.5 pr-0 text-[12.5px] text-text-primary placeholder:text-text-secondary/25 outline-none min-w-0 tracking-wide"
+            />
             <div className="flex items-center gap-1.5 pr-2">
-              <Search size={13} className="text-text-secondary/30 group-hover:text-text-secondary/50 transition-colors" />
+              <button
+                onClick={() => {
+                  if (searchQuery.trim()) setMobileSearchOpen(true)
+                }}
+                className="flex items-center justify-center text-text-secondary/30 hover:text-text-primary transition-colors"
+                aria-label="Search"
+              >
+                <Search size={13} />
+              </button>
               <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-[3px] bg-background-surface-alt/50 border border-border-subtle/30">
                 <Command size={9} className="text-text-secondary/30" />
                 <span className="text-[9px] font-semibold text-text-secondary/30">K</span>
               </div>
             </div>
-          </button>
+          </div>
         </div>
 
         {/* Right: Network + Wallet */}
