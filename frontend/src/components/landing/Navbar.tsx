@@ -21,7 +21,6 @@ const Navbar: React.FC = () => {
   const { publicKey, connected, disconnect } = useWallet()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [searchFocused, setSearchFocused] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const mobileSearchRef = useRef<HTMLInputElement>(null)
 
@@ -96,24 +95,21 @@ const Navbar: React.FC = () => {
 
         {/* Center: Global Search (Desktop) */}
         <div className="flex-1 max-w-[360px] mx-auto sm:mx-0 sm:flex-none sm:w-[280px] hidden sm:block">
-          <div className={`flex items-center h-[34px] rounded-lg border transition-all ${searchFocused ? 'border-accent-cyan/40 bg-background-surface/80 shadow-[0_0_12px_rgba(56,189,248,0.07)]' : 'border-border-subtle/60 bg-background-surface/50'}`}>
-            <input
-              type="text"
-              placeholder="Search agents, tasks..."
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              className="flex-1 bg-transparent pl-3 pr-2 text-[13px] text-text-primary placeholder:text-text-secondary/30 outline-none min-w-0"
-            />
-            <div className="flex items-center justify-center pr-2">
-              <Search size={15} className={`transition-colors duration-200 ${searchFocused ? 'text-accent-cyan' : 'text-text-secondary/40'}`} />
-            </div>
-            <div className="flex items-center pr-2.5">
+          <button
+            onClick={() => setMobileSearchOpen(true)}
+            className="flex items-center w-full h-[34px] rounded-lg border border-border-subtle/60 bg-background-surface/50 hover:bg-background-surface/80 hover:border-border-subtle transition-all group cursor-pointer"
+          >
+            <span className="flex-1 pl-3 text-left text-[13px] text-text-secondary/30 group-hover:text-text-secondary/50 transition-colors truncate">
+              Search agents, tasks...
+            </span>
+            <div className="flex items-center gap-2 pr-2.5">
+              <Search size={15} className="text-text-secondary/40 group-hover:text-text-secondary/60 transition-colors" />
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-background-surface-alt/60 border border-border-subtle/40">
                 <Command size={10} className="text-text-secondary/40" />
                 <span className="text-[10px] font-medium text-text-secondary/40">K</span>
               </div>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Right: Network + Wallet */}
@@ -201,9 +197,13 @@ const Navbar: React.FC = () => {
                 onKeyDown={(e) => e.key === 'Escape' && setMobileSearchOpen(false)}
                 className="flex-1 bg-transparent pl-3 pr-2 text-[14px] text-text-primary placeholder:text-text-secondary/30 outline-none min-w-0"
               />
-              <div className="flex items-center justify-center pr-3">
-                <Search size={15} className="text-text-secondary/40" />
-              </div>
+              <button
+                onClick={() => setMobileSearchOpen(false)}
+                className="flex items-center justify-center pr-3 text-text-secondary/40 hover:text-text-primary transition-colors"
+                aria-label="Close search"
+              >
+                <X size={15} />
+              </button>
             </div>
           </motion.div>
         )}
