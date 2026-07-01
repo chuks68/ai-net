@@ -1,0 +1,257 @@
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.subtitle {
+  color: #64748b;
+  font-size: 0.875rem;
+  margin: 8px 0 0;
+}
+
+/* Connect card (when not connected) */
+.connectCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 440px;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.secretInput {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-family: monospace;
+  background: #f8fafc;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.secretInput:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.connectButton {
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 16px;
+  background: #6366f1;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.connectButton:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.connectButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Balance card */
+.balanceCard {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 16px;
+  padding: 28px;
+  color: #ffffff;
+  margin-bottom: 32px;
+}
+
+.balanceSection {
+  margin-bottom: 20px;
+}
+
+.balanceTitle {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  opacity: 0.85;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.balanceAmount {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.balanceLabel {
+  font-size: 1rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.balanceSkeleton {
+  height: 40px;
+  width: 200px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+.balanceError {
+  font-size: 1rem;
+  opacity: 0.75;
+}
+
+.publicKeySection {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.qrCode {
+  background: #ffffff;
+  padding: 8px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.addressSection {
+  flex: 1;
+  min-width: 0;
+}
+
+.addressLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.75;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.addressRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.address {
+  font-size: 0.875rem;
+  font-family: monospace;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 4px 8px;
+  border-radius: 6px;
+  word-break: break-all;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-decoration: none;
+}
+
+.iconButton:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.actions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.disconnectButton {
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.disconnectButton:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Content grid */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.sendSection {
+  min-width: 0;
+}
+
+.historySection {
+  min-width: 0;
+}
+
+.error {
+  color: #dc2626;
+  font-size: 0.8125rem;
+  margin: 4px 0 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .balanceAmount {
+    font-size: 1.5rem;
+  }
+
+  .publicKeySection {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

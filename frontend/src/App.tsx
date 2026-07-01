@@ -1,0 +1,46 @@
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { WalletProvider } from './context/WalletContext'
+import AppShell from './components/layout/AppShell'
+import LandingPage from './pages/LandingPage'
+import AgentsPage from './pages/AgentsPage'
+import NewTaskPage from './pages/tasks/NewTaskPage'
+import TaskDetailPage from './pages/TaskDetailPage'
+import RendererDemoPage from './pages/RendererDemoPage'
+import WalletPage from './pages/WalletPage'
+import DashboardPage from './pages/dashboard'
+import ErrorBoundary from './components/common/ErrorBoundary'
+
+const AppContent: React.FC = () => {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/*" element={
+          <AppShell>
+            <Routes>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/wallet" element={<WalletPage />} />
+              <Route path="/agents" element={<AgentsPage />} />
+              <Route path="/tasks/new" element={<NewTaskPage />} />
+              <Route path="/tasks/:id" element={<TaskDetailPage />} />
+              <Route path="/renderer-demo" element={<RendererDemoPage />} />
+            </Routes>
+          </AppShell>
+        } />
+      </Routes>
+    </Router>
+  )
+}
+
+const App: React.FC = () => {
+  return (
+    <ErrorBoundary>
+      <WalletProvider>
+        <AppContent />
+      </WalletProvider>
+    </ErrorBoundary>
+  )
+}
+
+export default App

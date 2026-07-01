@@ -6,14 +6,23 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/index.ts",
-    "test": "jest",
+    "test": "jest --runInBand",
+    "test:e2e": "jest --runInBand tests/e2e/market-report.test.ts",
     "lint": "eslint src --ext .ts"
   },
-  "keywords": ["stellar", "ai-agents", "multi-agent", "soroban", "venice-ai", "decentralized"],
+  "keywords": [
+    "stellar",
+    "ai-agents",
+    "multi-agent",
+    "soroban",
+    "venice-ai",
+    "decentralized"
+  ],
   "license": "MIT",
   "dependencies": {
     "@stellar/stellar-sdk": "12.3.0",
-    "axios": "1.7.2"
+    "axios": "1.7.2",
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@types/jest": "29.5.12",
