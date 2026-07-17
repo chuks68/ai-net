@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 
 const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 100;
+const MAX_REQUESTS = 20;
 
 interface Window {
   timestamps: number[];

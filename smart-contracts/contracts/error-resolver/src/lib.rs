@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::OnceLock;
-use serde::{Deserialize, Serialize};
 
 /// Categories of Tier 1 Soroban host errors
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -86,13 +86,41 @@ impl ErrorResolver {
     fn new_fallback() -> Self {
         let mut mappings = HashMap::new();
         let fallback_data = [
-            (ErrorCategory::Budget, "ExceededLimit", "The transaction has exceeded the allocated CPU or memory instructions budget. Optimize loops, avoid excessive memory allocation, or configure a higher resource limit fee when submitting the transaction."),
-            (ErrorCategory::Storage, "MissingValue", "The requested ledger entry (e.g., persistent data, contract instance, or Wasm bytecode) does not exist or has been archived. Verify that the entry was created, or submit a RestoreFootprintOp transaction to restore the archived entry."),
-            (ErrorCategory::Storage, "ExceededLimit", "The transaction attempted to access a ledger entry that was not declared in the read/write footprint, or exceeded size limits. Run a transaction simulation (simulateTransaction) first to obtain the correct footprint and declare all accessed entries."),
-            (ErrorCategory::Storage, "ExistingValue", "The ledger entry or storage key already exists and cannot be overwritten as a new entry. Check if you should perform an update/put operation instead of creating a new entry, or verify key initialization logic."),
-            (ErrorCategory::Auth, "InvalidAction", "The authorization check failed. Verify that all required addresses (e.g. signer keypairs) have signed the authorization payloads, check that arguments are deterministic, and ensure nonces are not expired or reused."),
-            (ErrorCategory::Contract, "InvalidAction", "The smart contract encountered an invalid operation in its current state. Check contract state constraints, invariant checks, and ensure conditions for this state transition are met."),
-            (ErrorCategory::Contract, "InvalidInput", "The inputs passed to the contract function are invalid or out of bounds. Verify the arguments passed to the function call match the expected types and validate constraints."),
+            (
+                ErrorCategory::Budget,
+                "ExceededLimit",
+                "The transaction has exceeded the allocated CPU or memory instructions budget. Optimize loops, avoid excessive memory allocation, or configure a higher resource limit fee when submitting the transaction.",
+            ),
+            (
+                ErrorCategory::Storage,
+                "MissingValue",
+                "The requested ledger entry (e.g., persistent data, contract instance, or Wasm bytecode) does not exist or has been archived. Verify that the entry was created, or submit a RestoreFootprintOp transaction to restore the archived entry.",
+            ),
+            (
+                ErrorCategory::Storage,
+                "ExceededLimit",
+                "The transaction attempted to access a ledger entry that was not declared in the read/write footprint, or exceeded size limits. Run a transaction simulation (simulateTransaction) first to obtain the correct footprint and declare all accessed entries.",
+            ),
+            (
+                ErrorCategory::Storage,
+                "ExistingValue",
+                "The ledger entry or storage key already exists and cannot be overwritten as a new entry. Check if you should perform an update/put operation instead of creating a new entry, or verify key initialization logic.",
+            ),
+            (
+                ErrorCategory::Auth,
+                "InvalidAction",
+                "The authorization check failed. Verify that all required addresses (e.g. signer keypairs) have signed the authorization payloads, check that arguments are deterministic, and ensure nonces are not expired or reused.",
+            ),
+            (
+                ErrorCategory::Contract,
+                "InvalidAction",
+                "The smart contract encountered an invalid operation in its current state. Check contract state constraints, invariant checks, and ensure conditions for this state transition are met.",
+            ),
+            (
+                ErrorCategory::Contract,
+                "InvalidInput",
+                "The inputs passed to the contract function are invalid or out of bounds. Verify the arguments passed to the function call match the expected types and validate constraints.",
+            ),
         ];
 
         for (cat, code, suggestion) in fallback_data {
@@ -109,7 +137,9 @@ impl ErrorResolver {
 
     /// Lookup a suggestion using category enum and string representation of the error code.
     pub fn lookup_str(&self, category: ErrorCategory, code: &str) -> Option<&str> {
-        self.mappings.get(&(category, code.to_string())).map(|s| s.as_str())
+        self.mappings
+            .get(&(category, code.to_string()))
+            .map(|s| s.as_str())
     }
 
     /// Get a reference to the internal mappings map.
