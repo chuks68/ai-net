@@ -216,4 +216,4 @@ jobs:
 
       - name: Cargo build
         if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
-        run: cargo build --target wasm32v1-none --release
+        run: cargo build -p agent-registry --target wasm32v1-none --release
