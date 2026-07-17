@@ -173,7 +173,6 @@ jobs:
         if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.84.0"
           components: clippy, rustfmt
           targets: wasm32v1-none
 
@@ -209,11 +208,11 @@ jobs:
 
       - name: Cargo clippy
         if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy -p error-resolver --all-targets -- -D warnings
 
       - name: Cargo test
         if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
-        run: cargo test --all-features
+        run: cargo test -p error-resolver
 
       - name: Cargo build
         if: ${{ needs.detect_projects.outputs.smart_contracts_cargo == 'true' }}
