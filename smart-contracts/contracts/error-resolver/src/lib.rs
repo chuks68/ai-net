@@ -65,6 +65,12 @@ pub struct ErrorResolver {
     mappings: HashMap<(ErrorCategory, String), String>,
 }
 
+impl Default for ErrorResolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ErrorResolver {
     /// Create a new resolver by loading the embedded TOML database.
     pub fn new() -> Self {
